@@ -121,3 +121,17 @@ services:
     environment:
       - JAVA_OPTS=-Dspring.profiles.active=prd -Dendpoints.shutdown.enabled=true
     restart: unless-stopped
+
+  frontend:
+    image: seckill-frontend:0.2.0-SNAPSHOT
+    pull_policy: never
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - admin-service
+      - command-service
+      - query-service
+    restart: unless-stopped

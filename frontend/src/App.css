@@ -1,0 +1,174 @@
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 20px;
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--gold);
+  letter-spacing: 0.18em;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 42px;
+  letter-spacing: 0.04em;
+}
+
+.lede {
+  margin: 8px 0 0;
+  color: var(--muted);
+  max-width: 36em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.panel h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.field input {
+  background: #151210;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.toolbar input {
+  flex: 1;
+  background: #151210;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.primary,
+.ghost,
+.grab {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 16px;
+}
+
+.primary {
+  width: 100%;
+  margin-top: 8px;
+  background: var(--accent);
+  color: #fff7ef;
+}
+
+.primary:hover,
+.grab:hover {
+  background: var(--accent-dark);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.grab {
+  background: var(--accent);
+  color: #fff7ef;
+}
+
+.banner {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(226, 61, 40, 0.12);
+  color: #ffd0c6;
+}
+
+.banner.ok {
+  background: rgba(227, 179, 77, 0.14);
+  color: #f3d48a;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.meta {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.id {
+  font-size: 12px;
+  color: var(--gold);
+  word-break: break-all;
+}
+
+.empty {
+  color: var(--muted);
+}
+
+@media (max-width: 840px) {
+  .grid,
+  .hero {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  h1 {
+    font-size: 32px;
+  }
+}

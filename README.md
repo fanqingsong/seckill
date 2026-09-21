@@ -27,10 +27,10 @@ This is an Apache ServiceComb seckill demo for microservice development and Even
 | Web / REST | Spring MVC (`spring-boot-starter-web`) |
 | Persistence | Spring Data JPA + MySQL 5.x (H2 for tests) |
 | Messaging | Spring Boot ActiveMQ + ActiveMQ |
-| Container | Docker, Docker Compose; images built with fabric8 `docker-maven-plugin` |
+| Container | Docker, Docker Compose; Java images from a multi-stage Dockerfile; frontend is React + nginx |
 | CI / Quality | Travis CI, JaCoCo, Coveralls, Pact contract tests |
 
-There is no standalone frontend. APIs are verified with curl or Postman.
+The React UI is served at http://localhost:8080 (create promotions, grab coupons, query results). APIs can still be called with curl or Postman.
 
 This sample uses older stacks (Spring Boot 1.4, ServiceComb 0.2), not current mainstream versions.
 
@@ -49,7 +49,7 @@ Docker Compose runs two MySQL instances (`mysql-write-db` for writes, `mysql-rea
 
 - `seckill-event-store`: shared event/entity models and JPA repositories
 - `seckill-command-service` / `seckill-admin-service` / `seckill-query-service` / `seckill-event-service`: the four services above
-- `integration-test`, `test-support`, `coverage-aggregate`, `docker-build-config`: test and build helpers
+- `frontend`: React UI (nginx reverse-proxies `/admin`, `/command`, `/query`)
 
 ## Prerequisites
 You will need:
@@ -76,7 +76,7 @@ First Build all service images using command `mvn package -Pdocker`
 
 If run jar mode locally you can change application.properties and then `java -jar target/seckill/seckill-xxx-service-xxx-exec.jar`
 
-Also you can run all service images using command `docker-compose up`
+Also you can run all services with `docker compose up -d --build`. Open http://localhost:8080 for the React UI.
 
 If you are using [Docker Toolbox](https://www.docker.com/products/docker-toolbox), please add an extra profile `-Pdocker-machine`.
 
