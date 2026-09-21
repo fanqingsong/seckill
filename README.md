@@ -14,6 +14,43 @@ More detail see : [Command Micro-Service Architecture][cmsa]
 
 [cmsa]: https://github.com/ServiceComb/seckill/tree/master/seckill-command-service/README.md
 
+## Tech Stack
+
+This is an Apache ServiceComb seckill demo for microservice development and Event Sourcing.
+
+| Layer | Technology |
+|------|------|
+| Language / JDK | Java 8 |
+| Build | Maven multi-module (`0.2.0-SNAPSHOT`) |
+| Application | Spring Boot **1.4.5.RELEASE** |
+| Microservice | Apache ServiceComb 0.2.0 (`spring-boot-starter-provider` + `transport-rest-vertx`) |
+| Web / REST | Spring MVC (`spring-boot-starter-web`) |
+| Persistence | Spring Data JPA + MySQL 5.x (H2 for tests) |
+| Messaging | Spring Boot ActiveMQ + ActiveMQ |
+| Container | Docker, Docker Compose; images built with fabric8 `docker-maven-plugin` |
+| CI / Quality | Travis CI, JaCoCo, Coveralls, Pact contract tests |
+
+There is no standalone frontend. APIs are verified with curl or Postman.
+
+This sample uses older stacks (Spring Boot 1.4, ServiceComb 0.2), not current mainstream versions.
+
+## Architecture Style
+
+CQRS + Event Sourcing, split into four services:
+
+1. **Admin**: promotion management
+2. **Command**: accept grab-coupon requests, persist events, and publish them to the message broker
+3. **Event**: consume broker messages and write them to the read store
+4. **Query**: query active promotions and coupons a customer has already grabbed
+
+Docker Compose runs two MySQL instances (`mysql-write-db` for writes, `mysql-read-db` for reads), with ActiveMQ in between for synchronization.
+
+## Modules
+
+- `seckill-event-store`: shared event/entity models and JPA repositories
+- `seckill-command-service` / `seckill-admin-service` / `seckill-query-service` / `seckill-event-service`: the four services above
+- `integration-test`, `test-support`, `coverage-aggregate`, `docker-build-config`: test and build helpers
+
 ## Prerequisites
 You will need:
 1. [Oracle JDK 1.8+][jdk]

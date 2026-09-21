@@ -1,0 +1,14 @@
+**/.git
+**/.idea
+**/*.iml
+**/target
+**/.m2
+**/node_modules
+.git
+.idea
+*.iml
+target
+performance-test
+etc
+.travis.yml
+docker-compose*.yml
