@@ -53,15 +53,39 @@ public class SecKillEventFormat {
   }
 
   public EventMessageDto toMessage(SecKillEvent event) {
-    return new EventMessageDto(event.getType(), event.getPromotionId(), event.getContent(format));
+    return toMessage(event, java.util.UUID.randomUUID().toString(), 0L);
+  }
+
+  public EventMessageDto toMessage(SecKillEvent event, String eventId, long seq) {
+    return new EventMessageDto(eventId, event.getPromotionId(), seq, event.getType(), System.currentTimeMillis(),
+        event.getContent(format), customerIdOf(event));
   }
 
   public EventEntity toEntity(SecKillEvent event) {
-    return new EventEntity(event.getType(), event.getPromotionId(), event.getContent(format));
+    return toEntity(toMessage(event));
+  }
+
+  public EventEntity toEntity(EventMessageDto message) {
+    return new EventEntity(message.getEventId(), message.getSeq(), message.getType(), message.getPromotionId(),
+        message.getCustomerId(), message.getContent(), message.getOccurredAt());
   }
 
   private SecKillEvent generateEvent(String type, String content) {
     return eventFactories.get(type).apply(content);
+  }
+
+  private String customerIdOf(SecKillEvent event) {
+    if (event instanceof CouponGrabbedEvent) {
+      Object customerId = ((CouponGrabbedEvent<?>) event).getCoupon().getCustomerId();
+      return customerId == null ? null : String.valueOf(customerId);
+    }
+    if (event instanceof PromotionStartEvent) {
+      return "__start__";
+    }
+    if (event instanceof PromotionFinishEvent) {
+      return "__finish__";
+    }
+    return null;
   }
 
   private SecKillEvent couponGrabbedEvent(String content) {

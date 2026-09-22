@@ -1,19 +1,3 @@
-/*
- *   Copyright 2017 Huawei Technologies Co., Ltd
- *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
- */
-
 package io.servicecomb.poc.demo.seckill.web;
 
 import java.util.Collection;
@@ -26,9 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import io.servicecomb.poc.demo.seckill.SecKillEventPoller;
+import io.servicecomb.poc.demo.seckill.SecKillQueryService;
 import io.servicecomb.poc.demo.seckill.dto.CouponInfo;
 import io.servicecomb.poc.demo.seckill.entities.CouponEntity;
 import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
@@ -42,21 +27,30 @@ public class SeckillQueryRestController {
   private static final Logger logger = LoggerFactory.getLogger(SeckillQueryRestController.class);
 
   @Autowired
-  private SecKillEventPoller<String> secKillEventPoller;
+  private SecKillQueryService queryService;
 
   @RequestMapping(method = RequestMethod.GET, value = "/coupons/{customerId}")
   public Collection<CouponInfo> querySuccess(@PathVariable("customerId") String customerId) {
     logger.info("Query customer id = {} coupons", customerId);
-    Collection<CouponEntity<String>> coupons = secKillEventPoller.getCustomerCoupons(customerId);
-    return coupons.stream()
-        .map(coupon -> new CouponInfo(coupon.getId(), coupon.getCustomerId(), coupon.getPromotionId(),
-            new Date(coupon.getTime()), coupon.getDiscount()))
-        .collect(Collectors.toList());
+    return toInfo(queryService.getCustomerCoupons(customerId));
   }
 
   @RequestMapping(method = RequestMethod.GET, value = "/promotions")
   public Collection<PromotionEntity> queryCurrent() {
     logger.info("Query current active promotions");
-    return secKillEventPoller.getActivePromotions();
+    return queryService.getActivePromotions();
+  }
+
+  @RequestMapping(method = RequestMethod.GET, value = "/coupons/search")
+  public Collection<CouponInfo> search(@RequestParam(required = false) String customerId,
+      @RequestParam(required = false) String promotionId) {
+    return toInfo(queryService.search(customerId, promotionId));
+  }
+
+  private Collection<CouponInfo> toInfo(Collection<CouponEntity<String>> coupons) {
+    return coupons.stream()
+        .map(coupon -> new CouponInfo(coupon.getId(), coupon.getCustomerId(), coupon.getPromotionId(),
+            new Date(coupon.getTime()), coupon.getDiscount()))
+        .collect(Collectors.toList());
   }
 }

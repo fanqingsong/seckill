@@ -1,19 +1,3 @@
-/*
- *   Copyright 2017 Huawei Technologies Co., Ltd
- *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
- */
-
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.allOf;
@@ -24,10 +8,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.servicecomb.poc.demo.QueryServiceApplication;
+import io.servicecomb.poc.demo.seckill.entities.CouponEntity;
+import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
+import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
 import java.util.Date;
-
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,47 +21,22 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
-import io.servicecomb.poc.demo.QueryServiceApplication;
-import io.servicecomb.poc.demo.seckill.entities.CouponEntity;
-import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
-import io.servicecomb.poc.demo.seckill.repositories.spring.SpringCouponRepository;
-import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
-
 @RunWith(SpringRunner.class)
-@SpringBootTest(classes = QueryServiceApplication.class, properties = "event.polling.interval=100")
+@SpringBootTest(classes = QueryServiceApplication.class)
 @AutoConfigureMockMvc
 public class SecKillQueryServiceApplicationTest {
 
   private static final String customerId = "tester";
 
   private final PromotionEntity promotion1 = generatePromotion();
-
   private final PromotionEntity promotion2 = generatePromotion();
-
   private final PromotionEntity promotion3 = generatePromotion();
 
-  private final PromotionEntity[] promotions = {promotion1, promotion2, promotion3};
-
   @Autowired
-  private SpringPromotionRepository promotionRepository;
-
-  @Autowired
-  private SpringCouponRepository couponRepository;
+  private SecKillStore store;
 
   @Autowired
   private MockMvc mockMvc;
-
-  @Before
-  public void setUp() throws Exception {
-    couponRepository.deleteAll();
-    promotionRepository.deleteAll();
-  }
-
-  @After
-  public void tearDown() throws Exception {
-    couponRepository.deleteAll();
-    promotionRepository.deleteAll();
-  }
 
   @Test
   public void queryCouponWithNonExistentCustomer() throws Exception {
@@ -87,10 +47,8 @@ public class SecKillQueryServiceApplicationTest {
 
   @Test
   public void activePromotionCanBeQueried() throws Exception {
-    addActivePromotion(promotion1);
-    addActivePromotion(promotion3);
-
-    Thread.sleep(300);
+    store.saveActivePromotion(promotion1);
+    store.saveActivePromotion(promotion3);
 
     mockMvc.perform(get("/query/promotions/").contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -106,8 +64,6 @@ public class SecKillQueryServiceApplicationTest {
     addCouponToCustomer(customerId, promotion1);
     addCouponToCustomer("unknown", promotion2);
 
-    Thread.sleep(300);
-
     mockMvc.perform(get("/query/coupons/{customerId}", customerId).contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(content().string(
@@ -118,8 +74,6 @@ public class SecKillQueryServiceApplicationTest {
                 not(containsString("unknown")))));
 
     addCouponToCustomer(customerId, promotion3);
-
-    Thread.sleep(300);
 
     mockMvc.perform(get("/query/coupons/{customerId}", customerId).contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -133,13 +87,8 @@ public class SecKillQueryServiceApplicationTest {
   }
 
   private void addCouponToCustomer(String customerId, PromotionEntity promotion) {
-    couponRepository.save(
-        new CouponEntity<>(promotion.getPromotionId(), System.currentTimeMillis(), promotion.getDiscount(),
-            customerId));
-  }
-
-  private void addActivePromotion(PromotionEntity promotion) {
-    promotionRepository.save(promotion);
+    store.saveCoupon(new CouponEntity<String>(promotion.getPromotionId(), System.currentTimeMillis(),
+        promotion.getDiscount(), customerId));
   }
 
   private PromotionEntity generatePromotion() {

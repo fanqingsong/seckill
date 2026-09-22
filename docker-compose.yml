@@ -1,46 +1,60 @@
 services:
-  mysql-write-db:
-    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/mysql:5.7"
-    hostname: write_db_server
+  postgres:
+    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/postgres:15-alpine"
+    hostname: postgres
     environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_DATABASE=seckill
-      - MYSQL_USER=seckill
-      - MYSQL_PASSWORD=password
+      - POSTGRES_DB=seckill
+      - POSTGRES_USER=seckill
+      - POSTGRES_PASSWORD=password
     ports:
-      - "3306"
-    command: ["--character-set-server=utf8", "--collation-server=utf8_general_ci"]
+      - "5432:5432"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-ppassword"]
+      test: ["CMD-SHELL", "pg_isready -U seckill -d seckill"]
       interval: 5s
       timeout: 5s
       retries: 30
 
-  mysql-read-db:
-    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/mysql:5.7"
-    hostname: read_db_server
-    environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_DATABASE=seckill
-      - MYSQL_USER=seckill
-      - MYSQL_PASSWORD=password
+  redis:
+    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:7-alpine"
+    hostname: redis
     ports:
-      - "3306"
-    command: ["--character-set-server=utf8", "--collation-server=utf8_general_ci"]
+      - "6379:6379"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-ppassword"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
-      retries: 30
+      timeout: 3s
+      retries: 20
 
-  activemq:
-    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/webcenter/activemq:latest"
-    hostname: queue-server
+  zookeeper:
+    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/zookeeper:3.8"
+    hostname: zookeeper
     environment:
-      - ACTIVEMQ_ADMIN_LOGIN=admin
-      - ACTIVEMQ_ADMIN_PASSWORD=admin
+      - ZOO_MY_ID=1
+      - ZOO_SERVERS=server.1=zookeeper:2888:3888;2181
+
+  kafka:
+    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/wurstmeister/kafka:2.13-2.8.1"
+    hostname: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_HOST_NAME=kafka
+      - KAFKA_CREATE_TOPICS=seckill.events:3:1,seckill.events.dlt:1:1
     ports:
-      - "61616"
+      - "9092:9092"
+    links:
+      - "zookeeper:zookeeper"
+
+  elasticsearch:
+    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/elasticsearch:7.17.9"
+    hostname: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    ports:
+      - "9200:9200"
 
   admin-service:
     image: "seckill-admin-service:0.2.0-SNAPSHOT"
@@ -51,10 +65,10 @@ services:
       target: admin-service
     hostname: admin-service
     depends_on:
-      mysql-write-db:
+      postgres:
         condition: service_healthy
     links:
-      - "mysql-write-db:write_db.servicecomb.io"
+      - "postgres:postgres.servicecomb.io"
     environment:
       - JAVA_OPTS=-Dspring.profiles.active=prd -Dspring.main.web-environment=true -Dendpoints.shutdown.enabled=true
     ports:
@@ -70,13 +84,16 @@ services:
       target: command-service
     hostname: command-service
     depends_on:
-      mysql-write-db:
+      postgres:
         condition: service_healthy
-      activemq:
+      redis:
+        condition: service_healthy
+      kafka:
         condition: service_started
     links:
-      - "mysql-write-db:write_db.servicecomb.io"
-      - "activemq:queue.servicecomb.io"
+      - "postgres:postgres.servicecomb.io"
+      - "redis:redis.servicecomb.io"
+      - "kafka:kafka.servicecomb.io"
     environment:
       - JAVA_OPTS=-Dspring.profiles.active=prd -Dspring.main.web-environment=true -Dendpoints.shutdown.enabled=true
     ports:
@@ -92,10 +109,13 @@ services:
       target: query-service
     hostname: query-service
     depends_on:
-      mysql-read-db:
+      redis:
         condition: service_healthy
+      elasticsearch:
+        condition: service_started
     links:
-      - "mysql-read-db:read_db.servicecomb.io"
+      - "redis:redis.servicecomb.io"
+      - "elasticsearch:es.servicecomb.io"
     environment:
       - JAVA_OPTS=-Dspring.profiles.active=prd -Dspring.main.web-environment=true -Dendpoints.shutdown.enabled=true
     ports:
@@ -111,15 +131,23 @@ services:
       target: event-service
     hostname: event-service
     depends_on:
-      mysql-read-db:
+      postgres:
         condition: service_healthy
-      activemq:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      elasticsearch:
         condition: service_started
     links:
-      - "mysql-read-db:read_db.servicecomb.io"
-      - "activemq:queue.servicecomb.io"
+      - "postgres:postgres.servicecomb.io"
+      - "redis:redis.servicecomb.io"
+      - "kafka:kafka.servicecomb.io"
+      - "elasticsearch:es.servicecomb.io"
     environment:
-      - JAVA_OPTS=-Dspring.profiles.active=prd -Dendpoints.shutdown.enabled=true
+      - JAVA_OPTS=-Dspring.profiles.active=prd -Dspring.main.web-environment=true -Dendpoints.shutdown.enabled=true
+    ports:
+      - "8084:8084"
     restart: unless-stopped
 
   frontend:

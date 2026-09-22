@@ -1,29 +1,20 @@
-/*
- *   Copyright 2017 Huawei Technologies Co., Ltd
- *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
- */
-
 package io.servicecomb.poc.demo.seckill;
 
-import static org.hamcrest.collection.IsIterableContainingInOrder.contains;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 
+import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;
+import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
+import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
+import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
+import io.servicecomb.poc.demo.seckill.redis.InMemorySecKillStore;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
@@ -32,97 +23,74 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.junit.Before;
 import org.junit.Test;
 
 public class SecKillCommandServiceTest {
 
   private final int numberOfCoupons = 10;
-
-  private final BlockingQueue<Integer> coupons = new ArrayBlockingQueue<>(numberOfCoupons);
-  private final AtomicInteger claimedCoupons = new AtomicInteger();
-
-  private final SecKillRecoveryCheckResult<Integer> recovery = new SecKillRecoveryCheckResult<>(numberOfCoupons);
-  private final SecKillCommandService<Integer> commandService = new SecKillCommandService<>(coupons, claimedCoupons, recovery);
+  private final InMemorySecKillStore store = new InMemorySecKillStore();
+  private final PromotionEntity promotion = new PromotionEntity(new Date(), numberOfCoupons, 0.7f);
+  private final TransactionalEventOutboxWriter writer = mock(TransactionalEventOutboxWriter.class);
+  private final SecKillCommandService<Integer> commandService = new SecKillCommandService<Integer>(promotion, store,
+      writer, new SecKillEventFormat(new JacksonGeneralFormat()), false);
 
   private final AtomicInteger customerIdGenerator = new AtomicInteger();
   private final AtomicInteger numberOfSuccess = new AtomicInteger();
 
-  @Test
-  public void putsAllCustomersInQueue() {
-    for (int i = 0; i < 5; i++) {
-      SecKillGrabResult success = commandService.addCouponTo(i);
-      assertThat(success, is(SecKillGrabResult.Success));
-    }
-    assertThat(coupons, contains(0, 1, 2, 3, 4));
+  @Before
+  public void setUp() {
+    doNothing().when(writer).persist(any(EventMessageDto.class));
+    store.initStock(promotion.getPromotionId(), numberOfCoupons, Collections.<String>emptySet(), 0);
   }
 
   @Test
-  public void noMoreItemAddedToQueueOnceFull() {
-    keepConsumingCoupons();
+  public void acceptsCustomersUntilStockIsGone() {
+    for (int i = 0; i < 5; i++) {
+      assertThat(commandService.addCouponTo(i), is(SecKillGrabResult.Success));
+    }
+  }
 
+  @Test
+  public void concurrentGrabsDoNotOversell() {
     int threads = 200;
     CyclicBarrier barrier = new CyclicBarrier(threads);
-
-    addCouponsAsync(threads
-        , () -> {
-          try {
-            barrier.await();
-            return commandService.addCouponTo(customerIdGenerator.incrementAndGet()) == SecKillGrabResult.Success;
-          } catch (InterruptedException | BrokenBarrierException e) {
-            throw new RuntimeException(e);
-          }
-        }, success -> {
-          if (success) {
-            numberOfSuccess.incrementAndGet();
-          }
-        });
-
+    addCouponsAsync(threads, () -> {
+      try {
+        barrier.await();
+        return commandService.addCouponTo(customerIdGenerator.incrementAndGet()) == SecKillGrabResult.Success;
+      } catch (InterruptedException | BrokenBarrierException e) {
+        throw new RuntimeException(e);
+      }
+    }, success -> {
+      if (success) {
+        numberOfSuccess.incrementAndGet();
+      }
+    });
     assertThat(numberOfSuccess.get(), is(10));
   }
 
   @Test
-  public void failsToAddCustomerIfQueueIsFull() {
+  public void failsWhenSoldOut() {
     for (int i = 0; i < numberOfCoupons; i++) {
-      SecKillGrabResult success = commandService.addCouponTo(i);
-      assertThat(success, is(SecKillGrabResult.Success));
+      assertThat(commandService.addCouponTo(i), is(SecKillGrabResult.Success));
     }
-
-    assertThat(coupons.size(), is(numberOfCoupons));
-
-    SecKillGrabResult success = commandService.addCouponTo(100);
-    assertThat(success, is(SecKillGrabResult.Failed));
-    assertThat(coupons, contains(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
+    assertThat(commandService.addCouponTo(100), is(SecKillGrabResult.Failed));
   }
 
   @Test
   public void failsDuplicateAddCustomer() {
-    SecKillGrabResult success = commandService.addCouponTo(1);
-    assertThat(success, is(SecKillGrabResult.Success));
-    success = commandService.addCouponTo(1);
-    assertThat(success, is(SecKillGrabResult.Duplicate));
+    assertThat(commandService.addCouponTo(1), is(SecKillGrabResult.Success));
+    assertThat(commandService.addCouponTo(1), is(SecKillGrabResult.Duplicate));
   }
 
   private void addCouponsAsync(int threads, Supplier<Boolean> supplier, Consumer<Boolean> consumer) {
     ExecutorService executorService = Executors.newFixedThreadPool(threads);
-
-    List<CompletableFuture<Void>> futures = new ArrayList<>();
+    List<CompletableFuture<Void>> futures = new ArrayList<CompletableFuture<Void>>();
     for (int i = 0; i < threads; i++) {
       futures.add(CompletableFuture.supplyAsync(supplier, executorService).thenAccept(consumer));
     }
-
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()])).join();
     executorService.shutdown();
-  }
-
-  private void keepConsumingCoupons() {
-    CompletableFuture.runAsync(() -> {
-      while (!Thread.currentThread().isInterrupted()) {
-        try {
-          coupons.take();
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-        }
-      }
-    },Executors.newFixedThreadPool(4));
   }
 }

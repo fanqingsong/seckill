@@ -1,63 +1,38 @@
-/*
- *   Copyright 2017 Huawei Technologies Co., Ltd
- *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
- */
-
 package io.servicecomb.poc.demo.seckill;
 
+import io.servicecomb.poc.demo.seckill.es.SecKillEsConfig;
+import io.servicecomb.poc.demo.seckill.es.SecKillSearchIndex;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
-import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
-import io.servicecomb.poc.demo.seckill.repositories.spring.SpringCouponRepository;
-import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
-import javax.jms.ConnectionFactory;
-import org.springframework.boot.autoconfigure.jms.DefaultJmsListenerContainerFactoryConfigurer;
+import io.servicecomb.poc.demo.seckill.kafka.InMemoryEventBus;
+import io.servicecomb.poc.demo.seckill.kafka.KafkaSecKillEventConsumer;
+import io.servicecomb.poc.demo.seckill.kafka.SecKillEventPublisher;
+import io.servicecomb.poc.demo.seckill.kafka.SecKillKafkaConfig;
+import io.servicecomb.poc.demo.seckill.redis.SecKillRedisConfig;
+import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
+import io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRepository;
+import java.util.concurrent.Executors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
-import org.springframework.jms.config.JmsListenerContainerFactory;
-import org.springframework.jms.support.converter.MessageConverter;
-import org.springframework.jms.support.converter.SimpleMessageConverter;
+import org.springframework.context.annotation.Import;
 
 @Configuration
+@Import({SecKillRedisConfig.class, SecKillKafkaConfig.class, SecKillEsConfig.class})
 public class SecKillEventConfig {
 
   @Bean
-  JmsListenerContainerFactory<?> containerFactory(ConnectionFactory connectionFactory,
-      DefaultJmsListenerContainerFactoryConfigurer configurer) {
-    DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
-    configurer.configure(factory, connectionFactory);
-    return factory;
-  }
-
-  @Bean
-  MessageConverter messageConverter() {
-    return new SimpleMessageConverter();
-  }
-
-  @Bean
-  Format format() {
-    return new JacksonGeneralFormat();
-  }
-
-  @Bean
-  SecKillEventFormat secKillEventFormat(Format format) {
-    return new SecKillEventFormat(format);
-  }
-
-  @Bean
-  SecKillMessageSubscriber messageSubscriber(SpringPromotionRepository promotionRepository,
-      SpringCouponRepository<String> couponRepository, SecKillEventFormat eventFormat) {
-    return new SpringSecKillMessageSubscriber<>(promotionRepository, couponRepository, eventFormat);
+  EventProjector eventProjector(SecKillEventFormat eventFormat, SecKillStore store, SecKillSearchIndex searchIndex,
+      SpringSecKillEventRepository eventRepository,
+      @Value("${seckill.infra.mode:memory}") String mode,
+      @Value("${seckill.kafka.bootstrap:127.0.0.1:9092}") String bootstrap,
+      SecKillEventPublisher publisher) {
+    EventProjector projector = new EventProjector(eventFormat, store, searchIndex, eventRepository);
+    if ("prod".equals(mode)) {
+      KafkaSecKillEventConsumer consumer = new KafkaSecKillEventConsumer(bootstrap, projector, publisher);
+      Executors.newSingleThreadExecutor().submit(consumer);
+    } else if (publisher instanceof InMemoryEventBus) {
+      ((InMemoryEventBus) publisher).subscribe(projector);
+    }
+    return projector;
   }
 }

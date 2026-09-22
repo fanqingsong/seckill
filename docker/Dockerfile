@@ -30,4 +30,5 @@ ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
 FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/eclipse-temurin:8-jre AS event-service
 WORKDIR /app
 COPY --from=builder /build/seckill-event-service/target/seckill/seckill-event-service-0.2.0-SNAPSHOT-exec.jar app.jar
+EXPOSE 8084
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

@@ -1,35 +1,21 @@
-/*
- *   Copyright 2017 Huawei Technologies Co., Ltd
- *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
- */
-
 package io.servicecomb.poc.demo.seckill;
 
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.CoreMatchers.containsString;
 
+import io.servicecomb.poc.demo.CommandServiceApplication;
+import io.servicecomb.poc.demo.seckill.dto.CouponDto;
+import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
+import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
+import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
+import io.servicecomb.poc.demo.seckill.web.SecKillCommandRestController;
+import java.util.Collections;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,12 +26,6 @@ import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver;
-
-import io.servicecomb.poc.demo.CommandServiceApplication;
-import io.servicecomb.poc.demo.seckill.dto.CouponDto;
-import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
-import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
-import io.servicecomb.poc.demo.seckill.web.SecKillCommandRestController;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = CommandServiceApplication.class)
@@ -61,39 +41,25 @@ public class SecKillCommandApplicationTest {
   private SecKillCommandRestController controller;
 
   @Autowired
-  private List<SecKillEventPersistentRunner<String>> persistentRunners;
-
-  @Autowired
   private Map<String, SecKillCommandService<String>> commandServices;
 
   @Autowired
-  private SecKillRecoveryService<String> recoveryService;
+  private SecKillStore store;
 
   @Autowired
-  private SecKillEventPersistent eventPersistent;
+  private TransactionalEventOutboxWriter writer;
+
+  @Autowired
+  private io.servicecomb.poc.demo.seckill.event.SecKillEventFormat eventFormat;
 
   @Before
   public void setUp() throws Exception {
     mockMvc = MockMvcBuilders.standaloneSetup(controller).setHandlerExceptionResolvers(withExceptionControllerAdvice())
         .build();
-
-    this.persistentRunners.clear();
-    this.commandServices.clear();
-
-    SecKillRecoveryCheckResult<String> recoveryInfo = recoveryService.check(promotion);
-    AtomicInteger claimedCoupons = new AtomicInteger();
-    BlockingQueue<String> couponQueue = new ArrayBlockingQueue<>(recoveryInfo.remainingCoupons());
-
-    SecKillEventPersistentRunner<String> persistentRunner = new SecKillEventPersistentRunner<>(promotion,
-        couponQueue,
-        claimedCoupons,
-        eventPersistent,
-        recoveryInfo);
-    persistentRunner.run();
-    persistentRunners.add(persistentRunner);
-
-    commandServices
-        .put(promotion.getPromotionId(), new SecKillCommandService<>(couponQueue, claimedCoupons, recoveryInfo));
+    commandServices.clear();
+    store.initStock(promotion.getPromotionId(), 10, Collections.<String>emptySet(), 0);
+    commandServices.put(promotion.getPromotionId(),
+        new SecKillCommandService<String>(promotion, store, writer, eventFormat, false));
   }
 
   @Test
@@ -123,7 +89,3 @@ public class SecKillCommandApplicationTest {
     return exceptionResolver;
   }
 }
-
-
-
-

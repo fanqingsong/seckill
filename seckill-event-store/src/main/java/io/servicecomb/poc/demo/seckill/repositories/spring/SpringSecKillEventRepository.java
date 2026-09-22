@@ -23,4 +23,6 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 public interface SpringSecKillEventRepository extends PagingAndSortingRepository<EventEntity, Integer> {
 
   List<EventEntity> findByPromotionId(String promotionId);
+
+  List<EventEntity> findByPromotionIdAndSeqGreaterThanEqualOrderBySeqAsc(String promotionId, long seq);
 }
