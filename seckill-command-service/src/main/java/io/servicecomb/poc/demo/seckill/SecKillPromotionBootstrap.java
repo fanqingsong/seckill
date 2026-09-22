@@ -79,7 +79,8 @@ public class SecKillPromotionBootstrap<T> {
   private void finishExpired() {
     for (PromotionEntity promotion : promotionRepository.findAll()) {
       SecKillCommandService<T> service = commandServices.get(promotion.getPromotionId());
-      if (service != null && promotion.getFinishTime().getTime() <= System.currentTimeMillis()) {
+      if (service != null && promotion.getFinishTime().getTime() <= System.currentTimeMillis()
+          && store.pendingGrabCount() == 0) {
         service.finish();
       }
     }
@@ -90,16 +91,18 @@ public class SecKillPromotionBootstrap<T> {
       return;
     }
     SecKillRecoveryCheckResult<T> recoveryInfo = recoveryService.check(promotion);
-    Set<String> claimed = new HashSet<String>();
-    for (T customer : recoveryInfo.getClaimedCustomers()) {
-      claimed.add(String.valueOf(customer));
-    }
-    store.initStock(promotion.getPromotionId(), recoveryInfo.remainingCoupons(), claimed, recoveryInfo.lastSeq());
-    if (!recoveryInfo.isStarted()) {
-      long seq = store.nextSeq(promotion.getPromotionId());
-      EventMessageDto start = eventFormat.toMessage(new PromotionStartEvent(promotion), UUID.randomUUID().toString(),
-          seq);
-      writer.persist(start);
+    if (!store.stockKeysPresent(promotion.getPromotionId())) {
+      Set<String> claimed = new HashSet<String>();
+      for (T customer : recoveryInfo.getClaimedCustomers()) {
+        claimed.add(String.valueOf(customer));
+      }
+      store.initStock(promotion.getPromotionId(), recoveryInfo.remainingCoupons(), claimed, recoveryInfo.lastSeq());
+      if (!recoveryInfo.isStarted()) {
+        long seq = store.nextSeq(promotion.getPromotionId());
+        EventMessageDto start = eventFormat.toMessage(new PromotionStartEvent(promotion), UUID.randomUUID().toString(),
+            seq);
+        writer.persist(start);
+      }
     }
     SecKillCommandService<T> service = new SecKillCommandService<T>(promotion, store, writer, eventFormat,
         recoveryInfo.isFinished());

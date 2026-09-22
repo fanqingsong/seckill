@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -26,6 +27,9 @@ public class InMemorySecKillStore implements SecKillStore {
   private final Map<String, AtomicLong> applied = new ConcurrentHashMap<String, AtomicLong>();
   private final Map<String, List<EventMessageDto>> buffers = new ConcurrentHashMap<String, List<EventMessageDto>>();
   private final AtomicInteger couponId = new AtomicInteger();
+  private final ConcurrentLinkedQueue<GrabToken> pendingGrabs = new ConcurrentLinkedQueue<GrabToken>();
+  private final ConcurrentLinkedQueue<GrabToken> inflightGrabs = new ConcurrentLinkedQueue<GrabToken>();
+  private final Object grabQueueLock = new Object();
 
   @Override
   public void initStock(String promotionId, int remaining, Set<String> claimedCustomers, long lastSeq) {
@@ -56,7 +60,9 @@ public class InMemorySecKillStore implements SecKillStore {
         return new GrabAttempt(GrabAttempt.SOLD_OUT, 0, 0);
       }
       long seq = seqs.computeIfAbsent(promotionId, id -> new AtomicLong()).incrementAndGet();
-      return new GrabAttempt(GrabAttempt.SUCCESS, seq, remaining - 1);
+      long left = remaining - 1;
+      pendingGrabs.offer(new GrabToken(promotionId, customerId, seq, left));
+      return new GrabAttempt(GrabAttempt.SUCCESS, seq, left);
     }
   }
 
@@ -72,6 +78,55 @@ public class InMemorySecKillStore implements SecKillStore {
         set.remove(customerId);
       }
     }
+  }
+
+  @Override
+  public GrabToken pollInflight() {
+    synchronized (grabQueueLock) {
+      GrabToken inflight = inflightGrabs.peek();
+      if (inflight != null) {
+        return inflight;
+      }
+      GrabToken next = pendingGrabs.poll();
+      if (next == null) {
+        return null;
+      }
+      inflightGrabs.offer(next);
+      return next;
+    }
+  }
+
+  @Override
+  public void ackGrab(GrabToken token) {
+    if (token == null) {
+      return;
+    }
+    synchronized (grabQueueLock) {
+      inflightGrabs.remove(token);
+    }
+  }
+
+  @Override
+  public void deferInflight(GrabToken token) {
+    if (token == null) {
+      return;
+    }
+    synchronized (grabQueueLock) {
+      inflightGrabs.remove(token);
+      pendingGrabs.offer(token);
+    }
+  }
+
+  @Override
+  public int pendingGrabCount() {
+    synchronized (grabQueueLock) {
+      return pendingGrabs.size() + inflightGrabs.size();
+    }
+  }
+
+  @Override
+  public boolean stockKeysPresent(String promotionId) {
+    return stocks.containsKey(promotionId);
   }
 
   @Override

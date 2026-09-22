@@ -11,7 +11,7 @@ CQRS + Event Sourcing, split into four services plus a React UI:
 |---------|------|------|
 | Frontend (React + nginx) | 8080 | UI; reverse-proxy `/admin`, `/command`, `/query` (Event replay is **not** proxied) |
 | Admin | 8081 | Promotion management (PostgreSQL) |
-| Command | 8082 | Redis Lua hot path, persist events + outbox to PostgreSQL, Kafka via outbox relay |
+| Command | 8082 | Redis Lua hot path (stock + claim + grab queue); async worker writes events + outbox; Kafka via outbox relay |
 | Query | 8083 | Read Redis (hot query) and Elasticsearch (search) |
 | Event | 8084 | Kafka consumer, project Redis/ES; `POST /admin/replay` rebuilds from PostgreSQL |
 
@@ -39,7 +39,8 @@ flowchart TB
   subgraph writeSide["Write side"]
     Admin["Admin Service :8081"]
     Cmd["Command Service :8082"]
-    RedisHot["Redis Lua stock"]
+    RedisHot["Redis Lua stock plus grab queue"]
+    Worker["Grab persist worker"]
     PG[("PostgreSQL event store + outbox")]
   end
 
@@ -58,8 +59,9 @@ flowchart TB
   FE -->|"POST /command/coupons/"| Cmd
   FE -->|"GET /query/promotions<br/>GET /query/coupons/{id}"| Query
   Admin --> PG
-  Cmd --> RedisHot
-  Cmd -->|"same TX event + outbox"| PG
+  Cmd -->|"hot path: one Lua"| RedisHot
+  RedisHot -->|"RPUSH grab token"| Worker
+  Worker -->|"same TX event plus outbox"| PG
   PG -->|"outbox relay"| Kafka
   ZK -.->|"controller / topic metadata"| Kafka
   Kafka --> Event
@@ -104,6 +106,7 @@ sequenceDiagram
   participant FE as Frontend :8080
   participant Cmd as Command :8082
   participant Redis as Redis Lua
+  participant Worker as GrabPersistWorker
   participant PG as PostgreSQL
   participant Kafka as Kafka
   participant Event as Event Service
@@ -111,16 +114,19 @@ sequenceDiagram
 
   User->>FE: grab coupon
   FE->>Cmd: POST /command/coupons/
-  Cmd->>Redis: tryGrab Lua
+  Cmd->>Redis: Lua stock claimed and RPUSH
   alt accepted
-    Cmd->>PG: event plus outbox in one transaction
+    Redis-->>Cmd: success
     Cmd-->>FE: Request accepted
   else sold out or duplicate
     Cmd-->>FE: 429 Too Many Requests
   end
 
-  Note over Cmd,Kafka: Outbox relay publishes after commit
-  Cmd->>Kafka: seckill.events key=promotionId
+  Note over Redis,PG: Persist is off the request thread
+  Worker->>Redis: RPOPLPUSH inflight
+  Worker->>PG: event plus outbox in one transaction
+  Note over PG,Kafka: Outbox relay publishes after commit
+  PG->>Kafka: seckill.events key=promotionId
   Kafka->>Event: consume
   Event->>Redis: project coupon and promotions
   Event->>Event: Elasticsearch index
@@ -136,10 +142,10 @@ sequenceDiagram
 | Event | Write side | Read side (Event Service) |
 |-------|------------|---------------------------|
 | `PromotionStartEvent` | Redis stock initialized; event in PostgreSQL | Redis active promotion + ES promo doc |
-| `CouponGrabbedEvent` | Lua claim; unique (promotionId, customerId) | Redis coupon + ES coupon doc `id=pid:customerId` |
-| `PromotionFinishEvent` | Stock 0 or finishTime | Remove Redis promotion; ES finished flag |
+| `CouponGrabbedEvent` | Lua claim plus queue; worker persists; unique (promotionId, customerId) | Redis coupon + ES coupon doc `id=pid:customerId` |
+| `PromotionFinishEvent` | Stock 0 after last persist, or finishTime once the grab queue is empty | Remove Redis promotion; ES finished flag |
 
-Duplicates are ignored by unique constraint and Redis SET. Kafka key is `promotionId` so one promotion is ordered; projector still buffers `seq` gaps and can `POST /admin/replay?promotionId=&fromSeq=` from PostgreSQL. Failed projections go to `seckill.events.dlt`.
+Duplicates are ignored by unique constraint and Redis SET. HTTP `200` means Redis has claimed the coupon; Query lags until the worker and outbox catch up. Unpersisted grab tokens live in Redis lists (`seckill:grabs` / `seckill:grabs:inflight`) and require Redis persistence across restarts. If Redis is empty, Command rebuilds stock from the event table. Kafka key is `promotionId` so one promotion is ordered; projector still buffers `seq` gaps and can `POST /admin/replay?promotionId=&fromSeq=` from PostgreSQL. Failed projections go to `seckill.events.dlt`.
 
 ![Event sourcing overview](https://github.com/ServiceComb/seckill/blob/master/etc/EventSourcing.png)
 
@@ -174,7 +180,7 @@ Paths below work through the frontend (`http://localhost:8080/...`) except repla
 |--------|------|---------|-------|
 | `POST` | `/admin/promotions/` | Admin | Body: `numberOfCoupons`, `discount`, `publishTime`, `finishTime` (epoch millis). Returns `promotionId` |
 | `PUT` | `/admin/promotions/{promotionId}` | Admin | Update before `PromotionStartEvent` exists |
-| `POST` | `/command/coupons/` | Command | Body: `promotionId`, `customerId`. `200` accepted; sold out / duplicate is `429` (often surfaced as HTTP `400` with `InvocationException`) |
+| `POST` | `/command/coupons/` | Command | Body: `promotionId`, `customerId`. `200` means Redis claimed (Query lags until worker + outbox); sold out / duplicate is `429` (often surfaced as HTTP `400` with `InvocationException`) |
 | `GET` | `/query/promotions` | Query | Active promotions from Redis |
 | `GET` | `/query/coupons/{customerId}` | Query | Coupons from Redis |
 | `GET` | `/query/coupons/search?customerId=&promotionId=` | Query | Elasticsearch (empty list if the index is missing) |

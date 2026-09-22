@@ -14,6 +14,9 @@ import redis.clients.jedis.JedisPool;
 
 public class JedisSecKillStore implements SecKillStore {
 
+  static final String GRABS_KEY = "seckill:grabs";
+  static final String INFLIGHT_KEY = "seckill:grabs:inflight";
+
   private static final String GRAB_LUA =
       "if redis.call('EXISTS', KEYS[1]) == 0 then return {-3, 0, 0} end "
           + "if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 1 then return {-1, 0, 0} end "
@@ -22,7 +25,10 @@ public class JedisSecKillStore implements SecKillStore {
           + "redis.call('SADD', KEYS[2], ARGV[1]) "
           + "redis.call('DECR', KEYS[1]) "
           + "local seq = redis.call('INCR', KEYS[3]) "
-          + "return {1, seq, stock - 1}";
+          + "local remaining = stock - 1 "
+          + "local payload = ARGV[2] .. '\\t' .. ARGV[1] .. '\\t' .. tostring(seq) .. '\\t' .. tostring(remaining) "
+          + "redis.call('RPUSH', KEYS[4], payload) "
+          + "return {1, seq, remaining}";
 
   private static final String COMPENSATE_LUA =
       "redis.call('INCR', KEYS[1]) redis.call('SREM', KEYS[2], ARGV[1]) return 1";
@@ -56,8 +62,8 @@ public class JedisSecKillStore implements SecKillStore {
     Jedis jedis = pool.getResource();
     try {
       @SuppressWarnings("unchecked")
-      List<Long> result = (List<Long>) jedis.eval(GRAB_LUA, 3, stockKey(promotionId), claimedKey(promotionId),
-          seqKey(promotionId), customerId);
+      List<Long> result = (List<Long>) jedis.eval(GRAB_LUA, 4, stockKey(promotionId), claimedKey(promotionId),
+          seqKey(promotionId), GRABS_KEY, customerId, promotionId);
       return new GrabAttempt(result.get(0).intValue(), result.get(1), result.get(2));
     } finally {
       jedis.close();
@@ -69,6 +75,68 @@ public class JedisSecKillStore implements SecKillStore {
     Jedis jedis = pool.getResource();
     try {
       jedis.eval(COMPENSATE_LUA, 2, stockKey(promotionId), claimedKey(promotionId), customerId);
+    } finally {
+      jedis.close();
+    }
+  }
+
+  @Override
+  public GrabToken pollInflight() {
+    Jedis jedis = pool.getResource();
+    try {
+      String existing = jedis.lindex(INFLIGHT_KEY, 0);
+      if (existing != null) {
+        return GrabToken.parse(existing);
+      }
+      String moved = jedis.rpoplpush(GRABS_KEY, INFLIGHT_KEY);
+      return GrabToken.parse(moved);
+    } finally {
+      jedis.close();
+    }
+  }
+
+  @Override
+  public void ackGrab(GrabToken token) {
+    if (token == null) {
+      return;
+    }
+    Jedis jedis = pool.getResource();
+    try {
+      jedis.lrem(INFLIGHT_KEY, 1, token.payload());
+    } finally {
+      jedis.close();
+    }
+  }
+
+  @Override
+  public void deferInflight(GrabToken token) {
+    if (token == null) {
+      return;
+    }
+    Jedis jedis = pool.getResource();
+    try {
+      jedis.lrem(INFLIGHT_KEY, 1, token.payload());
+      jedis.rpush(GRABS_KEY, token.payload());
+    } finally {
+      jedis.close();
+    }
+  }
+
+  @Override
+  public int pendingGrabCount() {
+    Jedis jedis = pool.getResource();
+    try {
+      return (int) (jedis.llen(GRABS_KEY) + jedis.llen(INFLIGHT_KEY));
+    } finally {
+      jedis.close();
+    }
+  }
+
+  @Override
+  public boolean stockKeysPresent(String promotionId) {
+    Jedis jedis = pool.getResource();
+    try {
+      return Boolean.TRUE.equals(jedis.exists(stockKey(promotionId)));
     } finally {
       jedis.close();
     }

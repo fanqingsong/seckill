@@ -14,6 +14,16 @@ public interface SecKillStore {
 
   void compensateGrab(String promotionId, String customerId);
 
+  GrabToken pollInflight();
+
+  void ackGrab(GrabToken token);
+
+  void deferInflight(GrabToken token);
+
+  int pendingGrabCount();
+
+  boolean stockKeysPresent(String promotionId);
+
   long nextSeq(String promotionId);
 
   Collection<PromotionEntity> activePromotions();

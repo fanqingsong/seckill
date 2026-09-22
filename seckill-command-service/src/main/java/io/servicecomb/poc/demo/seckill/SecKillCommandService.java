@@ -6,12 +6,12 @@ import io.servicecomb.poc.demo.seckill.event.CouponGrabbedEvent;
 import io.servicecomb.poc.demo.seckill.event.PromotionFinishEvent;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
 import io.servicecomb.poc.demo.seckill.redis.GrabAttempt;
+import io.servicecomb.poc.demo.seckill.redis.GrabToken;
 import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 
 public class SecKillCommandService<T> {
 
@@ -32,6 +32,10 @@ public class SecKillCommandService<T> {
     this.finished.set(alreadyFinished);
   }
 
+  public PromotionEntity getPromotion() {
+    return promotion;
+  }
+
   public SecKillGrabResult addCouponTo(T customerId) {
     if (finished.get() || promotion.getFinishTime().getTime() < System.currentTimeMillis()) {
       return SecKillGrabResult.Failed;
@@ -44,25 +48,20 @@ public class SecKillCommandService<T> {
     if (!attempt.isSuccess()) {
       return SecKillGrabResult.Failed;
     }
-    try {
-      CouponGrabbedEvent<T> event = new CouponGrabbedEvent<T>(promotion, customerId);
-      EventMessageDto message = eventFormat.toMessage(event, UUID.randomUUID().toString(), attempt.getSeq());
-      writer.persist(message);
-      if (attempt.getRemaining() <= 0) {
-        finish();
-      }
-      return SecKillGrabResult.Success;
-    } catch (DataIntegrityViolationException duplicate) {
-      store.compensateGrab(promotion.getPromotionId(), customer);
-      return SecKillGrabResult.Duplicate;
-    } catch (RuntimeException e) {
-      logger.warn("Persist grab failed, compensate redis. customer={}", customer, e);
-      store.compensateGrab(promotion.getPromotionId(), customer);
-      return SecKillGrabResult.Failed;
-    }
+    return SecKillGrabResult.Success;
+  }
+
+  @SuppressWarnings("unchecked")
+  public void persistGrab(GrabToken token) {
+    CouponGrabbedEvent<T> event = new CouponGrabbedEvent<T>(promotion, (T) token.getCustomerId());
+    EventMessageDto message = eventFormat.toMessage(event, UUID.randomUUID().toString(), token.getSeq());
+    writer.persist(message);
   }
 
   public void finish() {
+    if (finished.get()) {
+      return;
+    }
     if (!finished.compareAndSet(false, true)) {
       return;
     }

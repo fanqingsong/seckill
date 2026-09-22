@@ -5,6 +5,8 @@ import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;
 import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
@@ -49,6 +51,7 @@ public class SecKillCommandServiceTest {
     for (int i = 0; i < 5; i++) {
       assertThat(commandService.addCouponTo(i), is(SecKillGrabResult.Success));
     }
+    verify(writer, never()).persist(any(EventMessageDto.class));
   }
 
   @Test
