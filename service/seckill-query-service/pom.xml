@@ -56,12 +56,14 @@
         <artifactId>spring-boot-maven-plugin</artifactId>
         <executions>
           <execution>
+            <id>repackage</id>
             <goals>
               <goal>repackage</goal>
             </goals>
             <configuration>
               <outputDirectory>${project.build.directory}/seckill</outputDirectory>
               <classifier>exec</classifier>
+              <mainClass>io.servicecomb.poc.demo.QueryServiceApplication</mainClass>
             </configuration>
           </execution>
         </executions>
