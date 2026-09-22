@@ -25,26 +25,33 @@ services:
       timeout: 3s
       retries: 20
 
-  zookeeper:
-    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/zookeeper:3.8"
-    hostname: zookeeper
-    environment:
-      - ZOO_MY_ID=1
-      - ZOO_SERVERS=server.1=zookeeper:2888:3888;2181
-
   kafka:
-    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/wurstmeister/kafka:2.13-2.8.1"
+    image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/apache/kafka:3.8.1"
     hostname: kafka
-    depends_on:
-      - zookeeper
     environment:
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_ADVERTISED_HOST_NAME=kafka
-      - KAFKA_CREATE_TOPICS=seckill.events:3:1,seckill.events.dlt:1:1
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      CLUSTER_ID: 5L6g3nShT-eMCtK--X86sw
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
     ports:
       - "9092:9092"
-    links:
-      - "zookeeper:zookeeper"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
 
   elasticsearch:
     image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/elasticsearch:7.17.9"
@@ -70,7 +77,7 @@ services:
     links:
       - "postgres:postgres.servicecomb.io"
     environment:
-      - JAVA_OPTS=-Dspring.profiles.active=prd -Dspring.main.web-environment=true -Dendpoints.shutdown.enabled=true
+      - JAVA_OPTS=-Dspring.profiles.active=prd
     ports:
       - "8081:8081"
     restart: unless-stopped
@@ -89,13 +96,13 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
     links:
       - "postgres:postgres.servicecomb.io"
       - "redis:redis.servicecomb.io"
       - "kafka:kafka.servicecomb.io"
     environment:
-      - JAVA_OPTS=-Dspring.profiles.active=prd -Dspring.main.web-environment=true -Dendpoints.shutdown.enabled=true
+      - JAVA_OPTS=-Dspring.profiles.active=prd
     ports:
       - "8082:8082"
     restart: unless-stopped
@@ -117,7 +124,7 @@ services:
       - "redis:redis.servicecomb.io"
       - "elasticsearch:es.servicecomb.io"
     environment:
-      - JAVA_OPTS=-Dspring.profiles.active=prd -Dspring.main.web-environment=true -Dendpoints.shutdown.enabled=true
+      - JAVA_OPTS=-Dspring.profiles.active=prd
     ports:
       - "8083:8083"
     restart: unless-stopped
@@ -136,7 +143,7 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       elasticsearch:
         condition: service_started
     links:
@@ -145,7 +152,7 @@ services:
       - "kafka:kafka.servicecomb.io"
       - "elasticsearch:es.servicecomb.io"
     environment:
-      - JAVA_OPTS=-Dspring.profiles.active=prd -Dspring.main.web-environment=true -Dendpoints.shutdown.enabled=true
+      - JAVA_OPTS=-Dspring.profiles.active=prd
     ports:
       - "8084:8084"
     restart: unless-stopped
@@ -154,7 +161,7 @@ services:
     image: seckill-frontend:0.2.0-SNAPSHOT
     pull_policy: never
     build:
-      context: ./frontend
+      context: ./service/frontend
       dockerfile: Dockerfile
     ports:
       - "8080:80"

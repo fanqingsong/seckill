@@ -40,7 +40,7 @@
                 <name>${project.artifactId}:${project.version}</name>
                 <alias>${project.artifactId}</alias>
                 <build>
-                  <from>swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/openjdk:8-jre-alpine</from>
+                  <from>swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/eclipse-temurin:17-jre</from>
                   <ports>
                     <port>8080</port>
                   </ports>
