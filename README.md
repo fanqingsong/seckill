@@ -8,11 +8,12 @@ It began as an Apache ServiceComb demo. HTTP is now **Spring MVC on Spring Boot 
 
 ## Architecture of SecKill
 
-Four Java services plus a React UI live under **`service/`**. Shared Maven libraries live under **`library/`**. Tests and JMeter live under **`test/`**.
+Five Java services plus a React UI live under **`service/`**. Shared Maven libraries live under **`library/`**. Tests and JMeter live under **`test/`**.
 
 | Service | Folder | Port | What it does |
 |---------|--------|------|----------------|
-| Frontend | [`service/frontend/`](service/frontend/) | 8080 | React UI; nginx reverse-proxies `/admin`, `/command`, `/query` (replay is **not** proxied) |
+| Frontend | [`service/frontend/`](service/frontend/) | 8080 | React UI; nginx reverse-proxies `/admin`, `/command`, `/query` to Gateway (replay is **not** proxied) |
+| Gateway | [`service/seckill-gateway/`](service/seckill-gateway/) | 8085 | Spring Cloud Gateway: Redis/in-memory rate limit + Resilience4j circuit breaker |
 | Admin | [`service/seckill-admin-service/`](service/seckill-admin-service/) | 8081 | Create/update promotions in PostgreSQL |
 | Command | [`service/seckill-command-service/`](service/seckill-command-service/) | 8082 | Redis Lua grab; async persist events + outbox; relay to Kafka |
 | Query | [`service/seckill-query-service/`](service/seckill-query-service/) | 8083 | Read Redis (hot) and Elasticsearch (search) |
@@ -23,7 +24,7 @@ Docker Compose also starts supporting infrastructure (not called by the browser)
 | Infra | Port | Role |
 |-------|------|------|
 | PostgreSQL | 5432 | Write-side promotions, append-only events, transactional outbox |
-| Redis | 6379 | Lua stock/claim hot path **and** Query read model |
+| Redis | 6379 | Lua stock/claim hot path, Query read model, **and** Gateway token-bucket rate limit in `prd` |
 | Kafka | 9092 | KRaft `seckill.events` (key = `promotionId`) and DLT `seckill.events.dlt` |
 | Elasticsearch | 9200 | Search/stats projection; existing Query GETs still use Redis |
 
@@ -39,6 +40,7 @@ More detail on Command internals: [Command Micro-Service Architecture](service/s
 flowchart TB
   User["Browser"]
   FE["Frontend nginx :8080"]
+  GW["Gateway :8085 rate limit plus circuit breaker"]
 
   subgraph writeSide["Write side"]
     Admin["Admin Service :8081"]
@@ -58,9 +60,10 @@ flowchart TB
   end
 
   User -->|"http://localhost:8080"| FE
-  FE -->|"POST /admin/promotions/"| Admin
-  FE -->|"POST /command/coupons/"| Cmd
-  FE -->|"GET /query/promotions<br/>GET /query/coupons/{id}"| Query
+  FE -->|"/admin /command /query"| GW
+  GW -->|"POST /admin/promotions/"| Admin
+  GW -->|"POST /command/coupons/"| Cmd
+  GW -->|"GET /query/promotions<br/>GET /query/coupons/{id}"| Query
   Admin --> PG
   Cmd -->|"hot path: one Lua"| RedisHot
   RedisHot -->|"RPUSH grab token"| Worker
@@ -106,6 +109,7 @@ sequenceDiagram
 sequenceDiagram
   actor User
   participant FE as Frontend :8080
+  participant GW as Gateway :8085
   participant Cmd as Command :8082
   participant Redis as Redis Lua
   participant Worker as GrabPersistWorker
@@ -115,14 +119,23 @@ sequenceDiagram
   participant Query as Query :8083
 
   User->>FE: grab coupon
-  FE->>Cmd: POST /command/coupons/
-  Cmd->>Redis: Lua stock claimed and RPUSH
-  alt accepted
-    Redis-->>Cmd: success
-    Cmd-->>FE: Request accepted
-  else sold out or duplicate
-    Redis-->>Cmd: reject
-    Cmd-->>FE: 429 Too Many Requests
+  FE->>GW: POST /command/coupons/
+  alt gateway rate limited
+    GW-->>FE: 429 plus X-RateLimit headers
+  else circuit open or downstream 5xx
+    GW-->>FE: 503 command unavailable
+  else admitted
+    GW->>Cmd: POST /command/coupons/
+    Cmd->>Redis: Lua stock claimed and RPUSH
+    alt accepted
+      Redis-->>Cmd: success
+      Cmd-->>GW: Request accepted
+      GW-->>FE: Request accepted
+    else sold out or duplicate
+      Redis-->>Cmd: reject
+      Cmd-->>GW: 429 out of stock or duplicate
+      GW-->>FE: 429 Too Many Requests
+    end
   end
 
   Note over Redis,PG: Persist is off the request thread
@@ -135,7 +148,8 @@ sequenceDiagram
   Event->>Event: Elasticsearch index
 
   User->>FE: query coupons
-  FE->>Query: GET /query/coupons/{customerId}
+  FE->>GW: GET /query/coupons/{customerId}
+  GW->>Query: GET /query/coupons/{customerId}
   Query->>Redis: read model
   Query-->>FE: CouponInfo list
 ```
@@ -158,15 +172,16 @@ Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP 
 |------|------|
 | Language / JDK | Java 17 |
 | Build | Maven 3.9+ multi-module (`0.2.0-SNAPSHOT`) |
-| Application | Spring Boot **3.3.13** |
-| Web / REST | Spring MVC (`spring-boot-starter-web`); Jakarta EE |
+| Application | Spring Boot **3.3.13** + Spring Cloud **2023.0.5** (Gateway) |
+| Web / REST | Spring MVC on Admin/Command/Query/Event; Spring Cloud Gateway (WebFlux) at the edge |
 | Persistence | Spring Data JPA + PostgreSQL (H2 for tests); Redis Lua (Jedis 5) for hot path and read model |
+| Edge | Gateway token bucket (in-memory tests / Redis in `prd`) + Resilience4j circuit breaker (5xx/timeout; **not** business 429) |
 | Messaging | Kafka 3.8 KRaft (`seckill.events` / `seckill.events.dlt`) via transactional outbox |
 | Search | Elasticsearch 7.17 (coupon/promotion projection) |
 | Container | Docker Compose; Java 17 multi-stage `docker/Dockerfile`; frontend is React + nginx |
 | CI / Quality | Travis CI (`openjdk17`), JaCoCo, Coveralls |
 
-The UI is http://localhost:8080. Nginx only forwards `/admin`, `/command`, and `/query`; call Event Service on `:8084` for replay. Actuator health is `http://localhost:8081/health` … `:8084/health` (`management.endpoints.web.base-path=/`).
+The UI is http://localhost:8080. Nginx forwards `/admin`, `/command`, and `/query` to Gateway `:8085`. Call Event Service on `:8084` for replay (not on the Gateway). Actuator health is `http://localhost:8081/health` … `:8085/health` (`management.endpoints.web.base-path=/`).
 
 ## HTTP APIs
 
@@ -176,7 +191,7 @@ Paths below work through the frontend (`http://localhost:8080/...`) except repla
 |--------|------|---------|-------|
 | `POST` | `/admin/promotions/` | Admin | Body: `numberOfCoupons`, `discount`, `publishTime`, `finishTime` (epoch millis). Returns `promotionId` |
 | `PUT` | `/admin/promotions/{promotionId}` | Admin | Update before `PromotionStartEvent` exists |
-| `POST` | `/command/coupons/` | Command | Body: `promotionId`, `customerId`. `200` = Redis claimed (Query lags until worker + outbox); sold out / duplicate = **HTTP 429** with a plain-text reason |
+| `POST` | `/command/coupons/` | Command | Body: `promotionId`, `customerId`. `200` = Redis claimed (Query lags until worker + outbox); sold out / duplicate = **HTTP 429** with a plain-text reason. Gateway quota exceeded is also **429** but with `X-RateLimit-*` headers and an empty body |
 | `GET` | `/query/promotions` | Query | Active promotions from Redis (no trailing slash) |
 | `GET` | `/query/coupons/{customerId}` | Query | Coupons from Redis |
 | `GET` | `/query/coupons/search?customerId=&promotionId=` | Query | Elasticsearch (empty list if the index is missing) |
@@ -189,7 +204,8 @@ Java lives under each module’s `src/main/java/io/servicecomb/poc/demo/`. Share
 ```
 seckill/
 ├── service/
-│   ├── frontend/                    # UI + nginx :8080
+│   ├── frontend/                    # UI + nginx :8080 → Gateway
+│   ├── seckill-gateway/             # Gateway :8085
 │   ├── seckill-admin-service/       # Admin :8081
 │   ├── seckill-command-service/     # Command :8082
 │   ├── seckill-query-service/       # Query :8083
@@ -207,6 +223,17 @@ seckill/
 ├── docker/Dockerfile                # Java 17 multi-stage images
 └── docker-compose.yml
 ```
+
+### Gateway — [`service/seckill-gateway/`](service/seckill-gateway/)
+
+**Function:** single HTTP edge for Admin / Command / Query. Per-IP token bucket (command 50/s burst 100; query 100/s; admin 10/s). Resilience4j circuit breaker treats **500–504 and timeouts** as failures and returns `503` with `command unavailable` / `query unavailable` / `admin unavailable`. Business **429** from Command is passed through and does **not** open the circuit. Event replay stays off this gateway. Tests use `seckill.gateway.rate-limiter=memory`; Compose `prd` uses Redis.
+
+| Review | Path |
+|--------|------|
+| Boot | [`GatewayApplication.java`](service/seckill-gateway/src/main/java/io/servicecomb/poc/demo/GatewayApplication.java) |
+| Routes, IP key, CB status codes | [`GatewayConfiguration.java`](service/seckill-gateway/src/main/java/io/servicecomb/poc/demo/seckill/gateway/GatewayConfiguration.java) |
+| Memory vs Redis limiter | [`GatewayRateLimiterConfiguration.java`](service/seckill-gateway/src/main/java/io/servicecomb/poc/demo/seckill/gateway/GatewayRateLimiterConfiguration.java) |
+| Fallback `503` | [`web/GatewayFallbackController.java`](service/seckill-gateway/src/main/java/io/servicecomb/poc/demo/seckill/web/GatewayFallbackController.java) |
 
 ### Admin — [`service/seckill-admin-service/`](service/seckill-admin-service/)
 
@@ -295,7 +322,7 @@ seckill/
 
 ## Run Services
 
-Preferred: start the full stack with Compose (PostgreSQL, Redis, Kafka KRaft, Elasticsearch, four Java services, frontend). Images in `docker-compose.yml` use the Huawei Cloud prefix `swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/`.
+Preferred: start the full stack with Compose (PostgreSQL, Redis, Kafka KRaft, Elasticsearch, five Java services, frontend). Images in `docker-compose.yml` use the Huawei Cloud prefix `swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/`.
 
 ```bash
 docker compose up -d --build

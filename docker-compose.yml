@@ -157,6 +157,34 @@ services:
       - "8084:8084"
     restart: unless-stopped
 
+  gateway-service:
+    image: "seckill-gateway:0.2.0-SNAPSHOT"
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: gateway
+    hostname: gateway-service
+    depends_on:
+      redis:
+        condition: service_healthy
+      admin-service:
+        condition: service_started
+      command-service:
+        condition: service_started
+      query-service:
+        condition: service_started
+    links:
+      - "redis:redis.servicecomb.io"
+      - admin-service
+      - command-service
+      - query-service
+    environment:
+      - JAVA_OPTS=-Dspring.profiles.active=prd
+    ports:
+      - "8085:8085"
+    restart: unless-stopped
+
   frontend:
     image: seckill-frontend:0.2.0-SNAPSHOT
     pull_policy: never
@@ -166,7 +194,5 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - admin-service
-      - command-service
-      - query-service
+      - gateway-service
     restart: unless-stopped

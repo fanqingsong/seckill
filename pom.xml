@@ -18,6 +18,7 @@
     <module>service/seckill-admin-service</module>
     <module>service/seckill-query-service</module>
     <module>service/seckill-event-service</module>
+    <module>service/seckill-gateway</module>
     <module>test/test-support</module>
     <module>test/integration-test</module>
     <module>test/coverage-aggregate</module>
@@ -35,6 +36,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <java.version>17</java.version>
+    <spring-cloud.version>2023.0.5</spring-cloud.version>
   </properties>
 
   <dependencyManagement>
@@ -63,6 +65,18 @@
         <groupId>io.servicecomb.poc.demo</groupId>
         <artifactId>seckill-event-service</artifactId>
         <version>0.2.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>io.servicecomb.poc.demo</groupId>
+        <artifactId>seckill-gateway</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
       <dependency>
         <groupId>io.servicecomb.poc.demo</groupId>

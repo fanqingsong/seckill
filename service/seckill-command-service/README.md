@@ -12,7 +12,7 @@ HTTP is Spring MVC (Spring Boot 3). Sold out / duplicate grab returns **HTTP 429
   1. `SecKillCommandService`: Redis Lua `tryGrab` (stock + claimed set + `RPUSH` grab token). HTTP returns immediately.  
   2. `GrabPersistWorker`: `RPOPLPUSH` to inflight, same transaction writes the event and outbox; unique `(promotionId, customerId)` is treated as success ACK. Last unit of stock then writes `PromotionFinishEvent`.  
   3. `OutboxRelay`: publishes committed outbox rows to Kafka `seckill.events` (key = `promotionId`). Kafka in Compose is **KRaft** (no ZooKeeper).
-* Duplicate / sold out return `429` (`duplicate order` / `out of stock`). Unique `(promotionId, customerId)` on the event store is a second line of defense.
+* Duplicate / sold out return `429` (`duplicate order` / `out of stock`). Unique `(promotionId, customerId)` on the event store is a second line of defense. Browser traffic goes through Gateway first: quota 429 has `X-RateLimit-*` headers; sold-out 429 has a plain-text body and does not trip the circuit breaker.
 
 The grab queue is a Redis List (Jedis 5). Query sync is unchanged (outbox → Kafka → Event Service). Unpersisted tokens depend on Redis durability; an empty Redis is rebuilt from the event table.
 
