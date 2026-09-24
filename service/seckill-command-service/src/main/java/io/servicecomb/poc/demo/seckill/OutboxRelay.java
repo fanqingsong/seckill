@@ -19,8 +19,10 @@ package io.servicecomb.poc.demo.seckill;
 import io.servicecomb.poc.demo.seckill.entities.OutboxEntity;
 import io.servicecomb.poc.demo.seckill.kafka.SecKillEventPublisher;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringOutboxRepository;
+import jakarta.annotation.PreDestroy;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +49,8 @@ public class OutboxRelay {
 
   private final SpringOutboxRepository outboxRepository;
   private final SecKillEventPublisher publisher;
+  /** 投递线程。容器关闭时要停掉，否则它会一直占着进程。 */
+  private final ScheduledExecutorService scheduler;
 
   /**
    * 保存依赖，并立刻开始轮询未发布的 outbox。
@@ -60,9 +64,23 @@ public class OutboxRelay {
   public OutboxRelay(SpringOutboxRepository outboxRepository, SecKillEventPublisher publisher) {
     this.outboxRepository = outboxRepository;
     this.publisher = publisher;
+    // 守护线程：主进程退出时它不会单独把 JVM 留住。名字方便在线程栈里认出是谁在发 Kafka。
+    this.scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+      Thread thread = new Thread(runnable, "outbox-relay");
+      thread.setDaemon(true);
+      return thread;
+    });
     // outbox relay：只投递已经提交的行；本轮失败的行保持未发布，下一轮再发。
-    Executors.newSingleThreadScheduledExecutor().scheduleWithFixedDelay(this::publishPending, 200, 200,
-        TimeUnit.MILLISECONDS);
+    scheduler.scheduleWithFixedDelay(this::publishPending, 200, 200, TimeUnit.MILLISECONDS);
+  }
+
+  /**
+   * Spring 容器关闭时停掉投递线程。{@code @PreDestroy} 表示 Bean 销毁前会调用它。
+   * 已经发出但还没标成已发布的行，下次启动仍会再发；投影按序号去重。
+   */
+  @PreDestroy
+  public void stop() {
+    scheduler.shutdownNow();
   }
 
   /**

@@ -22,6 +22,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 /**
@@ -34,12 +35,15 @@ import jakarta.persistence.Table;
  * 抢券 HTTP 线程不会插入这一行；HTTP 返回成功时，这里可能还没有对应记录。
  * <p>
  * {@code @Entity} 告诉 JPA：这个类对应一张数据库表。{@code @Table(name = "outbox")}
- * 指定表名是 {@code outbox}，不使用类名当表名。{@code @Id} 标出主键。
+ * 指定表名是 {@code outbox}，不使用类名当表名。{@code published,id} 上的索引让 relay
+ * 按「未发布、id 从小到大」取前 50 行时不必扫全表。{@code @Id} 标出主键。
  * {@code @GeneratedValue(strategy = GenerationType.IDENTITY)} 表示主键由数据库自增，
  * 插入成功后才回填到 {@link #id}，Java 代码不要自己编这个数字。
  */
 @Entity
-@Table(name = "outbox")
+@Table(name = "outbox", indexes = {
+    @Index(name = "idx_outbox_unpublished", columnList = "published,id")
+})
 public class OutboxEntity {
 
   /** 数据库自增主键，插入前是 null。 */

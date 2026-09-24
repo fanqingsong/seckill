@@ -23,6 +23,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -40,10 +41,15 @@ import jakarta.persistence.UniqueConstraint;
  * {@code __start__} 和 {@code __finish__}，这样三种事件不会互相挤掉，同一顾客也不能抢两次。
  * {@code @Id} 配 {@code GenerationType.IDENTITY} 表示 {@link #id} 由数据库自增。
  * {@code @Column(unique = true)} 要求 {@link #eventId} 全表不重复。
+ * {@code @Index} 给两类查询建索引：按活动加类型判断是否已经开始或结束，
+ * 按活动加序号回放。索引不改变列，也不改变「只追加」的写法。
  */
 @Entity
 @Table(name = "sec_kill_event", uniqueConstraints = {
     @UniqueConstraint(name = "uk_grab_customer", columnNames = {"promotionId", "customerId"})
+}, indexes = {
+    @Index(name = "idx_event_promotion_type", columnList = "promotionId,type"),
+    @Index(name = "idx_event_promotion_seq", columnList = "promotionId,seq")
 })
 public class EventEntity {
 

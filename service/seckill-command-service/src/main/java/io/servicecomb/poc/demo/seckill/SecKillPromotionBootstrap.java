@@ -23,12 +23,14 @@ import io.servicecomb.poc.demo.seckill.event.PromotionStartEvent;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
 import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
+import jakarta.annotation.PreDestroy;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +60,8 @@ public class SecKillPromotionBootstrap<T> {
   private final Map<String, PromotionEntity> waitingPromotions = new HashMap<String, PromotionEntity>();
   /** 活动表里已经扫过的最大主键。下一轮只查 id 更大的新行。 */
   private int loadedPromotionId = 0;
+  /** 定时扫描线程。容器关闭时停掉，避免进程退出后还在读活动表。 */
+  private ScheduledExecutorService scheduler;
 
   /**
    * 接住配置类传进来的依赖。本构造器不启动线程，线程在 {@link #run()} 里启动。
@@ -89,7 +93,23 @@ public class SecKillPromotionBootstrap<T> {
    * 不在本方法里改库存。
    */
   public void run() {
-    Executors.newScheduledThreadPool(1).scheduleWithFixedDelay(this::tick, 0, 500, TimeUnit.MILLISECONDS);
+    this.scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+      Thread thread = new Thread(runnable, "promotion-bootstrap");
+      thread.setDaemon(true);
+      return thread;
+    });
+    scheduler.scheduleWithFixedDelay(this::tick, 0, 500, TimeUnit.MILLISECONDS);
+  }
+
+  /**
+   * Spring 容器关闭时停掉扫描线程。{@code @PreDestroy} 表示 Bean 销毁前会调用它。
+   * 不改 Redis 库存，也不补写结束事件。
+   */
+  @PreDestroy
+  public void stop() {
+    if (scheduler != null) {
+      scheduler.shutdownNow();
+    }
   }
 
   /**
@@ -131,13 +151,17 @@ public class SecKillPromotionBootstrap<T> {
    * 墙上时钟已过 {@code finishTime}，并且 Redis 抢券流里没有待处理令牌时，写结束事件。
    * <p>
    * {@code pendingGrabCount() == 0} 表示抢券队列已空：消费者组里既没有未投递的消息，
-   * 也没有尚未 ack 的消息。队列不空就先跳过，避免 Persist 还在写抢券事件时先写下结束事件。
+   * 也没有尚未 ack 的消息。这条流是全局的，所以一轮只问一次。队列不空就整轮跳过，
+   * 避免 Persist 还在写抢券事件时先写下结束事件。已启动的活动在内存 Map 里，不再每 500 毫秒 {@code findAll}。
    */
   private void finishExpired() {
-    for (PromotionEntity promotion : promotionRepository.findAll()) {
-      SecKillCommandService<T> service = commandServices.get(promotion.getPromotionId());
-      if (service != null && promotion.getFinishTime().getTime() <= System.currentTimeMillis()
-          && store.pendingGrabCount() == 0) {
+    // seckill:grabs 是全局一条流。队列里还有令牌时，这一轮不为任何活动写结束事件，也不必按活动重复询问。
+    if (store.pendingGrabCount() != 0) {
+      return;
+    }
+    for (SecKillCommandService<T> service : commandServices.values()) {
+      PromotionEntity promotion = service.getPromotion();
+      if (promotion.getFinishTime().getTime() <= System.currentTimeMillis()) {
         // 已过结束时间，且抢券队列已空：可以追加 PromotionFinishEvent。
         service.finish();
       }

@@ -26,7 +26,9 @@ import io.servicecomb.poc.demo.seckill.redis.GrabToken;
 import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
 import jakarta.annotation.PreDestroy;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,6 +59,11 @@ public class GrabPersistWorker {
 
   private final SecKillStore store;
   private final SpringPromotionRepository promotionRepository;
+  /**
+   * 活动行在开始之后不再被 Admin 修改。同一场活动的令牌很多，第一次查到后放在这里，
+   * 避免每条令牌都打一次 PostgreSQL。
+   */
+  private final Map<String, PromotionEntity> promotionCache = new ConcurrentHashMap<String, PromotionEntity>();
   private final PersistOutboxWriter writer;
   private final SecKillEventFormat eventFormat;
   /** 为 false 时循环退出。容器关闭时由 {@link #stop()} 改掉。 */
@@ -69,7 +76,7 @@ public class GrabPersistWorker {
    * 守护线程的意思是：主进程退出时它不会单独把 JVM 留住。{@code executor.execute} 立刻调用 {@link #loop}。
    *
    * @param store Redis 抢券流。{@code pollInflight} 取出尚未 ack 的令牌
-   * @param promotionRepository 按活动编号读取 Admin 写入的活动行，用来拼事件
+   * @param promotionRepository 按活动编号读取 Admin 写入的活动行。同一活动只查一次，之后走进程内缓存
    * @param writer 同一事务写入事件和 outbox
    * @param eventFormat 把抢券事件、结束事件转成消息
    */
@@ -123,7 +130,7 @@ public class GrabPersistWorker {
       // 抢券队列这一轮是空的：没有未投递的新令牌，也没有待重试的旧令牌。
       return false;
     }
-    PromotionEntity promotion = promotionRepository.findTopByPromotionId(token.getPromotionId());
+    PromotionEntity promotion = loadPromotion(token.getPromotionId());
     if (promotion == null) {
       // 活动尚未写入 PostgreSQL（或编号对不上）。令牌放回流里，稍后再读，避免丢掉一次已经扣减的库存。
       store.deferInflight(token);
@@ -146,6 +153,25 @@ public class GrabPersistWorker {
       sleepBackoff();
       return false;
     }
+  }
+
+  /**
+   * 按活动编号取活动行。缓存里没有时才查 PostgreSQL；查不到不缓存，下一轮还能再试。
+   *
+   * @param promotionId 令牌上的活动编号
+   * @return 活动行。表里还没有时返回 null
+   */
+  private PromotionEntity loadPromotion(String promotionId) {
+    PromotionEntity cached = promotionCache.get(promotionId);
+    if (cached != null) {
+      return cached;
+    }
+    PromotionEntity loaded = promotionRepository.findTopByPromotionId(promotionId);
+    if (loaded != null) {
+      // 开始之后这一行不再改折扣和券数量，后续令牌可以复用。
+      promotionCache.put(promotionId, loaded);
+    }
+    return loaded;
   }
 
   /**

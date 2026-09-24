@@ -163,7 +163,7 @@ sequenceDiagram
 | `CouponGrabbedEvent` | Lua claim plus queue; worker persists; unique `(promotionId, customerId)` | Redis coupon + ES coupon doc `id=pid:customerId` |
 | `PromotionFinishEvent` | Stock 0 after last persist, or finishTime once the grab queue is empty | Remove Redis promotion; ES finished flag |
 
-Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP `200` means Redis has claimed the coupon; Query lags until the worker and outbox catch up. Unpersisted grab tokens live in Redis stream `seckill:grabs` (consumer group `persist`) and need Redis durability across restarts. If Redis is empty, Command rebuilds stock from the event table. Kafka key is `promotionId` so one promotion is ordered; the projector still buffers `seq` gaps and can `POST /admin/replay?promotionId=&fromSeq=` from PostgreSQL. Failed projections go to `seckill.events.dlt`.
+Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP `200` means Redis has claimed the coupon; Query lags until the worker and outbox catch up. Unpersisted grab tokens live in Redis stream `seckill:grabs` (consumer group `persist`) and need Redis durability across restarts. If Redis is empty, Command rebuilds stock from the event table. Kafka key is `promotionId` so one promotion is ordered; the projector still buffers `seq` gaps and can `POST /admin/replay?promotionId=&fromSeq=` from PostgreSQL. Failed projections go to `seckill.events.dlt`. The consumer commits a poll batch only for records already projected or copied to the dead-letter topic, so a crash mid-batch redelivers the rest.
 
 ![Event sourcing overview](https://github.com/ServiceComb/seckill/blob/master/etc/EventSourcing.png)
 
@@ -308,7 +308,7 @@ seckill/
 | Folder | Function |
 |--------|----------|
 | [`test/test-support/`](test/test-support/) | HTTP 429/400 bodies; also on Admin/Command runtime classpath. [`ApiExceptionHandler.java`](test/test-support/src/main/java/io/servicecomb/poc/demo/seckill/ApiExceptionHandler.java) |
-| [`test/integration-test/`](test/integration-test/) | Grab + query in one Spring context |
+| [`test/integration-test/`](test/integration-test/) | Create, grab, persist, project, and query in one Spring context |
 | [`test/performance-test/`](test/performance-test/) | JMeter; see [README](test/performance-test/README.md) |
 | [`test/coverage-aggregate/`](test/coverage-aggregate/) | JaCoCo aggregate |
 

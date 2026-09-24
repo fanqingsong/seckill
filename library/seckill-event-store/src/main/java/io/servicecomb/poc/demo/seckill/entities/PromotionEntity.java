@@ -39,6 +39,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
 /**
  * 一场秒杀活动在 PostgreSQL 里的当前定义：什么时候开始、什么时候结束、多少张券、几折。
@@ -48,11 +50,15 @@ import jakarta.persistence.Id;
  * （正文里会再序列化一份本对象）。Event 服务投影后，进行中的活动会出现在 Redis 和
  * Elasticsearch。本类不是追加事件，同一活动之后可以用 setter 改字段再保存。
  * <p>
- * {@code @Entity} 表示 JPA 管理它，默认表名是类名。{@code @Id} 和
+ * {@code @Entity} 表示 JPA 管理它，默认表名是类名。{@code promotionId} 上有索引，
+ * Persist 和 Admin 按业务编号查这一行时不用扫全表。{@code @Id} 和
  * {@code GenerationType.IDENTITY} 表示 {@link #id} 由数据库自增，和业务编号
  * {@link #promotionId} 不是一回事。
  */
 @Entity
+@Table(indexes = {
+    @Index(name = "idx_promotion_business_id", columnList = "promotionId")
+})
 public class PromotionEntity {
 
   /** 数据库自增主键。对外使用的是 {@link #promotionId}。 */

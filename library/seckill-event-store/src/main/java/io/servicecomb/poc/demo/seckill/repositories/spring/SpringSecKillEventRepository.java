@@ -66,4 +66,15 @@ public interface SpringSecKillEventRepository extends JpaRepository<EventEntity,
    * @return 按 {@code seq} 升序排列的事件。不写 Kafka
    */
   List<EventEntity> findByPromotionIdAndSeqGreaterThanEqualOrderBySeqAsc(String promotionId, long seq);
+
+  /**
+   * 这场活动是否已经有某一类事件。
+   * <p>
+   * 判断「已经开始」或「已经结束」时用它。数据库只回答有没有，不会把该活动全部抢券行装进内存。
+   *
+   * @param promotionId 活动编号
+   * @param type 事件种类，取值见 {@code SecKillEventType} 的三个常量
+   * @return 至少有一行时为 true。不修改表
+   */
+  boolean existsByPromotionIdAndType(String promotionId, String type);
 }

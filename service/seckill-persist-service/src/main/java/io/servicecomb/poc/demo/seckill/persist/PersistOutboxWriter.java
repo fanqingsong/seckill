@@ -18,7 +18,6 @@
 package io.servicecomb.poc.demo.seckill.persist;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;
-import io.servicecomb.poc.demo.seckill.entities.EventEntity;
 import io.servicecomb.poc.demo.seckill.entities.OutboxEntity;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventType;
@@ -78,12 +77,7 @@ public class PersistOutboxWriter {
    * @return 事件表中已有 {@code PromotionFinishEvent} 时为 true
    */
   public boolean hasFinishEvent(String promotionId) {
-    for (EventEntity event : eventRepository.findByPromotionId(promotionId)) {
-      if (SecKillEventType.PromotionFinishEvent.equals(event.getType())) {
-        // 已经写过结束事件。
-        return true;
-      }
-    }
-    return false;
+    // 只问有没有结束事件这一行。卖完最后一张时，不把已经抢到的券全部装进内存。
+    return eventRepository.existsByPromotionIdAndType(promotionId, SecKillEventType.PromotionFinishEvent);
   }
 }

@@ -34,8 +34,10 @@ import java.util.Set;
 import java.util.UUID;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.StreamEntryID;
 import redis.clients.jedis.exceptions.JedisDataException;
+import redis.clients.jedis.exceptions.JedisNoScriptException;
 import redis.clients.jedis.params.XAutoClaimParams;
 import redis.clients.jedis.params.XReadGroupParams;
 import redis.clients.jedis.resps.StreamEntry;
@@ -48,7 +50,9 @@ import redis.clients.jedis.resps.StreamGroupInfo;
  * 热路径库存是字符串 {@code seckill:stock:{promotionId}}、集合 {@code seckill:claimed:{promotionId}}、
  * 字符串 {@code seckill:seq:{promotionId}}。抢券队列是 Stream {@code seckill:grabs}，消费者组 {@code persist}。
  * 查询读模型是另一组键（进行中的活动、券、投影序号、乱序缓冲），和库存键分开。
- * 抢券只执行下面的一段 Lua：判断、扣减、写入 Stream 在 Redis 里一次完成。HTTP 线程不写 PostgreSQL，也不发 Kafka。
+ * 抢券只执行下面的一段 Lua：判断、扣减、写入 Stream 在 Redis 里一次完成。
+ * 脚本正文很长，第一次用 SCRIPT LOAD 交给 Redis，之后热路径只传 SHA（EVALSHA），少传一遍脚本文本。
+ * HTTP 线程不写 PostgreSQL，也不发 Kafka。
  */
 public class JedisSecKillStore implements SecKillStore {
 
@@ -58,6 +62,13 @@ public class JedisSecKillStore implements SecKillStore {
   static final String GRAB_GROUP = "persist";
   /** 条目在组里闲置超过这么多毫秒，就允许当前消费者把别人没 ack 的消息领走。 */
   private static final long RECLAIM_IDLE_MS = 30_000L;
+  /**
+   * 两次 XAUTOCLAIM 之间至少隔这么久。稳态下每取一条令牌都认领，会多一次往返；
+   * 进程重启后，旧消费者留下的 pending 仍会在这个间隔内被领回。
+   */
+  private static final long RECLAIM_CHECK_INTERVAL_MS = 5_000L;
+  /** 恢复库存时，一条 SADD 最多带这么多个顾客，避免单条命令过长。 */
+  private static final int CLAIMED_SADD_CHUNK = 500;
   /**
    * 读「本消费者自己还没 ack 的条目」时使用的位置。
    * Stream 规定 id {@code 0} 表示该消费者的 pending，而不是新消息。
@@ -73,6 +84,8 @@ public class JedisSecKillStore implements SecKillStore {
   private final String consumer = "persist-" + UUID.randomUUID();
   /** 本进程是否已经确认消费者组存在。避免每次取令牌都向 Redis 发 XGROUP CREATE。 */
   private volatile boolean groupReady;
+  /** 下一次允许 XAUTOCLAIM 的墙上时钟。0 表示马上可以认领，进程刚启动时会先领回旧 pending。 */
+  private long nextReclaimAt;
 
   /**
    * 热路径抢券脚本。KEYS 依次是库存、已抢集合、序号、抢券 Stream；ARGV 是顾客编号和活动编号。
@@ -102,6 +115,39 @@ public class JedisSecKillStore implements SecKillStore {
   private static final String COMPENSATE_LUA =
       "redis.call('INCR', KEYS[1]) redis.call('SREM', KEYS[2], ARGV[1]) return 1";
 
+  /**
+   * 投影写券，一次做完「已有则返回、没有则编号并写入」。
+   * KEYS 依次是券字符串、自增编号、顾客集合、按编号排序的有序集合。
+   * ARGV 是活动编号、抢到时间、折扣、顾客编号、集合成员 {@code promotionId:customerId}。
+   * <p>
+   * {@code cjson} 是 Redis 自带的 JSON 库。拼出来的字段和查询页读的券一样：
+   * id、promotionId、time、discount、customerId。已有券时不再 INCR。
+   */
+  private static final String SAVE_COUPON_LUA =
+      "local existing = redis.call('GET', KEYS[1]) "
+          + "if existing then return existing end "
+          + "local id = redis.call('INCR', KEYS[2]) "
+          + "local coupon = {id = id, promotionId = ARGV[1], time = tonumber(ARGV[2]), "
+          + "discount = tonumber(ARGV[3]), customerId = ARGV[4]} "
+          + "local json = cjson.encode(coupon) "
+          + "redis.call('SET', KEYS[1], json) "
+          + "redis.call('SADD', KEYS[3], ARGV[5]) "
+          + "redis.call('ZADD', KEYS[4], id, json) "
+          + "return json";
+
+  /**
+   * 把乱序缓冲整表取走并删除，避免 LRANGE 和 DEL 之间又有新消息被删掉。
+   * KEYS 是 {@code seckill:buffer:{promotionId}}。
+   */
+  private static final String DRAIN_BUFFER_LUA =
+      "local items = redis.call('LRANGE', KEYS[1], 0, -1) redis.call('DEL', KEYS[1]) return items";
+
+  /** 抢券、补偿、写券、清空缓冲四段脚本。正文只在第一次 SCRIPT LOAD，之后用 SHA 调用。 */
+  private static final CachedScript GRAB_SCRIPT = new CachedScript(GRAB_LUA);
+  private static final CachedScript COMPENSATE_SCRIPT = new CachedScript(COMPENSATE_LUA);
+  private static final CachedScript SAVE_COUPON_SCRIPT = new CachedScript(SAVE_COUPON_LUA);
+  private static final CachedScript DRAIN_BUFFER_SCRIPT = new CachedScript(DRAIN_BUFFER_LUA);
+
   private final JedisPool pool;
   /** 读模型以 JSON 字符串放进 Redis。库存和抢券队列不用它。 */
   private final ObjectMapper mapper = new ObjectMapper();
@@ -127,14 +173,25 @@ public class JedisSecKillStore implements SecKillStore {
   public void initStock(String promotionId, int remaining, Set<String> claimedCustomers, long lastSeq) {
     Jedis jedis = pool.getResource();
     try {
-      jedis.set(stockKey(promotionId), String.valueOf(remaining));
-      jedis.del(claimedKey(promotionId));
-      if (claimedCustomers != null) {
-        for (String customer : claimedCustomers) {
-          jedis.sadd(claimedKey(promotionId), customer);
+      // Pipeline 把多条命令一次发给 Redis。恢复时已抢顾客可能很多，不能每人一次往返。
+      Pipeline pipeline = jedis.pipelined();
+      try {
+        pipeline.set(stockKey(promotionId), String.valueOf(remaining));
+        pipeline.del(claimedKey(promotionId));
+        pipeline.set(seqKey(promotionId), String.valueOf(lastSeq));
+        if (claimedCustomers != null && !claimedCustomers.isEmpty()) {
+          String[] members = claimedCustomers.toArray(new String[0]);
+          for (int from = 0; from < members.length; from += CLAIMED_SADD_CHUNK) {
+            int to = Math.min(from + CLAIMED_SADD_CHUNK, members.length);
+            String[] chunk = new String[to - from];
+            System.arraycopy(members, from, chunk, 0, chunk.length);
+            pipeline.sadd(claimedKey(promotionId), chunk);
+          }
         }
+        pipeline.sync();
+      } finally {
+        pipeline.close();
       }
-      jedis.set(seqKey(promotionId), String.valueOf(lastSeq));
     } finally {
       jedis.close();
     }
@@ -142,6 +199,7 @@ public class JedisSecKillStore implements SecKillStore {
 
   /**
    * 执行抢券 Lua。四个 KEYS 和两个 ARGV 的顺序必须和脚本注释一致。
+   * 实际调用是 EVALSHA：脚本正文已经在 Redis 里，这次只传 SHA。
    *
    * @param promotionId 活动编号，同时作为 payload 的第一段
    * @param customerId 顾客编号，脚本用它做 SISMEMBER / SADD
@@ -152,8 +210,8 @@ public class JedisSecKillStore implements SecKillStore {
     Jedis jedis = pool.getResource();
     try {
       @SuppressWarnings("unchecked")
-      List<Long> result = (List<Long>) jedis.eval(GRAB_LUA, 4, stockKey(promotionId), claimedKey(promotionId),
-          seqKey(promotionId), GRABS_KEY, customerId, promotionId);
+      List<Long> result = (List<Long>) evalScript(jedis, GRAB_SCRIPT, 4, stockKey(promotionId),
+          claimedKey(promotionId), seqKey(promotionId), GRABS_KEY, customerId, promotionId);
       return new GrabAttempt(result.get(0).intValue(), result.get(1), result.get(2));
     } finally {
       jedis.close();
@@ -170,14 +228,15 @@ public class JedisSecKillStore implements SecKillStore {
   public void compensateGrab(String promotionId, String customerId) {
     Jedis jedis = pool.getResource();
     try {
-      jedis.eval(COMPENSATE_LUA, 2, stockKey(promotionId), claimedKey(promotionId), customerId);
+      evalScript(jedis, COMPENSATE_SCRIPT, 2, stockKey(promotionId), claimedKey(promotionId), customerId);
     } finally {
       jedis.close();
     }
   }
 
   /**
-   * 按「自己的 pending → 闲置超过 30 秒的别人的 pending → 新消息」取出一条令牌。
+   * 按「自己的 pending → 间隔认领闲置超过 30 秒的别人的 pending → 新消息」取出一条令牌。
+   * 认领大约每 5 秒才做一次，避免每条令牌都多一次 XAUTOCLAIM。
    * <p>
    * 新消息使用 Stream 的特殊 id {@code >}（{@code XREADGROUP_UNDELIVERED_ENTRY}），表示还没投递过的条目。
    * 取到的令牌带上条目 id，Persist 落库成功后用它 XACK。
@@ -195,10 +254,15 @@ public class JedisSecKillStore implements SecKillStore {
         // 本消费者还有没 ack 的条目。block 传 -1，表示这一步不阻塞。
         return owned;
       }
-      GrabToken reclaimed = reclaimOne(jedis);
-      if (reclaimed != null) {
-        // 别的消费者领走后闲置超过 RECLAIM_IDLE_MS。领回到本消费者再交给 Persist。
-        return reclaimed;
+      long now = System.currentTimeMillis();
+      if (now >= nextReclaimAt) {
+        // 距上次认领已过 RECLAIM_CHECK_INTERVAL_MS，或这是本进程第一次取令牌。
+        nextReclaimAt = now + RECLAIM_CHECK_INTERVAL_MS;
+        GrabToken reclaimed = reclaimOne(jedis);
+        if (reclaimed != null) {
+          // 别的消费者领走后闲置超过 RECLAIM_IDLE_MS。领回到本消费者再交给 Persist。
+          return reclaimed;
+        }
       }
       int blockMillis = timeoutMillis > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(timeoutMillis, 0);
       return readOne(jedis, StreamEntryID.XREADGROUP_UNDELIVERED_ENTRY, blockMillis);
@@ -443,7 +507,7 @@ public class JedisSecKillStore implements SecKillStore {
   }
 
   /**
-   * 先读集合 {@code seckill:customer_coupons:{customerId}}，再按每个成员 GET {@code seckill:coupon:} 加成员。
+   * 先读集合 {@code seckill:customer_coupons:{customerId}}，再一次 MGET 这些成员对应的 {@code seckill:coupon:} 键。
    * <p>
    * 集合成员的形状是 {@code promotionId:customerId}。某个券键已经不在时跳过。
    *
@@ -454,10 +518,19 @@ public class JedisSecKillStore implements SecKillStore {
   public Collection<CouponEntity<String>> customerCoupons(String customerId) {
     Jedis jedis = pool.getResource();
     try {
-      Set<String> keys = jedis.smembers("seckill:customer_coupons:" + customerId);
+      Set<String> members = jedis.smembers("seckill:customer_coupons:" + customerId);
       List<CouponEntity<String>> result = new ArrayList<CouponEntity<String>>();
-      for (String key : keys) {
-        String json = jedis.get("seckill:coupon:" + key);
+      if (members == null || members.isEmpty()) {
+        return result;
+      }
+      // 一次 MGET 取回这名顾客的全部券，避免每张券一次往返。键格式仍是 seckill:coupon: 加集合成员。
+      String[] keys = new String[members.size()];
+      int index = 0;
+      for (String member : members) {
+        keys[index++] = "seckill:coupon:" + member;
+      }
+      List<String> jsons = jedis.mget(keys);
+      for (String json : jsons) {
         if (json != null) {
           result.add(coupon(json));
         }
@@ -524,8 +597,8 @@ public class JedisSecKillStore implements SecKillStore {
   /**
    * 写入一张券的读模型。键 {@code seckill:coupon:{promotionId}:{customerId}} 已有 JSON 时直接返回旧券。
    * <p>
-   * 新券先 INCR {@code seckill:coupon_id} 得到 id，再 SET 券 JSON、SADD 到顾客的集合、
-   * ZADD 到 {@code seckill:coupons_by_id}（分数是 id，成员是 JSON）。
+   * 新券在一段 Lua 里 INCR {@code seckill:coupon_id}，再 SET 券 JSON、SADD 到顾客的集合、
+   * ZADD 到 {@code seckill:coupons_by_id}（分数是 id，成员是 JSON）。已有券不会再编号。
    *
    * @param coupon 待保存的券。新券会就地 {@code setId}
    * @return 读模型里的券。重复时是 Redis 里已有的那份
@@ -534,19 +607,15 @@ public class JedisSecKillStore implements SecKillStore {
   public CouponEntity<String> saveCoupon(CouponEntity<String> coupon) {
     Jedis jedis = pool.getResource();
     try {
-      String key = coupon.getPromotionId() + ":" + coupon.getCustomerId();
-      String existing = jedis.get("seckill:coupon:" + key);
-      if (existing != null) {
-        // 同一活动同一顾客已经投影过，不再 INCR 券编号。
-        return coupon(existing);
-      }
-      long id = jedis.incr("seckill:coupon_id");
-      coupon.setId((int) id);
-      String json = write(coupon);
-      jedis.set("seckill:coupon:" + key, json);
-      jedis.sadd("seckill:customer_coupons:" + coupon.getCustomerId(), key);
-      jedis.zadd("seckill:coupons_by_id", id, json);
-      return coupon;
+      String member = coupon.getPromotionId() + ":" + coupon.getCustomerId();
+      Object raw = evalScript(jedis, SAVE_COUPON_SCRIPT, 4, "seckill:coupon:" + member, "seckill:coupon_id",
+          "seckill:customer_coupons:" + coupon.getCustomerId(), "seckill:coupons_by_id",
+          coupon.getPromotionId(), String.valueOf(coupon.getTime()), String.valueOf(coupon.getDiscount()),
+          String.valueOf(coupon.getCustomerId()), member);
+      CouponEntity<String> saved = coupon(String.valueOf(raw));
+      // 新券的编号由 Lua 里的 INCR 决定。调用方如果还拿着传入的对象，这里把编号填回去。
+      coupon.setId(saved.getId());
+      return saved;
     } finally {
       jedis.close();
     }
@@ -601,7 +670,7 @@ public class JedisSecKillStore implements SecKillStore {
   }
 
   /**
-   * LRANGE {@code seckill:buffer:{promotionId}} 的全部元素，然后 DEL 这个列表键。
+   * 用一段 Lua 取走并删除 {@code seckill:buffer:{promotionId}}，两步不会被别的写入插开。
    *
    * @param promotionId 活动编号
    * @return 取出的消息。列表不存在时为空列表
@@ -610,11 +679,14 @@ public class JedisSecKillStore implements SecKillStore {
   public List<EventMessageDto> drainBuffer(String promotionId) {
     Jedis jedis = pool.getResource();
     try {
-      List<String> raw = jedis.lrange("seckill:buffer:" + promotionId, 0, -1);
-      jedis.del("seckill:buffer:" + promotionId);
+      Object raw = evalScript(jedis, DRAIN_BUFFER_SCRIPT, 1, "seckill:buffer:" + promotionId);
       List<EventMessageDto> result = new ArrayList<EventMessageDto>();
-      for (String json : raw) {
-        result.add(read(json, EventMessageDto.class));
+      if (raw instanceof List) {
+        for (Object json : (List<?>) raw) {
+          if (json != null) {
+            result.add(read(String.valueOf(json), EventMessageDto.class));
+          }
+        }
       }
       return result;
     } finally {
@@ -644,6 +716,31 @@ public class JedisSecKillStore implements SecKillStore {
       }
     }
     return result;
+  }
+
+  /**
+   * 执行已经缓存在 Redis 里的脚本。第一次调用 SCRIPT LOAD，之后 EVALSHA 只传 SHA。
+   * <p>
+   * Redis 重启或脚本被淘汰时会抛 {@link JedisNoScriptException}，这时再加载一次。
+   * 键和参数的顺序与脚本正文里的 KEYS、ARGV 一致。
+   *
+   * @param jedis 当前借出的连接
+   * @param script 脚本文本和已经加载过的 SHA
+   * @param keyCount KEYS 的个数，后面先排键、再排 ARGV
+   * @param params 键和参数
+   * @return Redis 返回的对象，具体形状由脚本决定
+   */
+  private Object evalScript(Jedis jedis, CachedScript script, int keyCount, String... params) {
+    try {
+      if (script.sha == null) {
+        script.sha = jedis.scriptLoad(script.body);
+      }
+      return jedis.evalsha(script.sha, keyCount, params);
+    } catch (JedisNoScriptException missing) {
+      // 服务器上没有这个 SHA：再把正文加载一次，然后用新的 SHA 执行。
+      script.sha = jedis.scriptLoad(script.body);
+      return jedis.evalsha(script.sha, keyCount, params);
+    }
   }
 
   /** 热路径库存字符串键。 */
@@ -700,5 +797,18 @@ public class JedisSecKillStore implements SecKillStore {
   @SuppressWarnings("unchecked")
   private CouponEntity<String> coupon(String json) {
     return read(json, CouponEntity.class);
+  }
+
+  /**
+   * 一段 Lua 的正文，以及它在 Redis 里的 SHA。
+   * {@code sha} 由第一次 SCRIPT LOAD 填上，多个线程同时写到同一个值也没有关系。
+   */
+  private static final class CachedScript {
+    private final String body;
+    private volatile String sha;
+
+    private CachedScript(String body) {
+      this.body = body;
+    }
   }
 }

@@ -54,6 +54,14 @@
       <groupId>io.servicecomb.poc.demo</groupId>
       <artifactId>seckill-event-service</artifactId>
     </dependency>
+    <!--
+      抢券 HTTP 成功后，令牌要由 Persist 的工人线程写成事件和 outbox。
+      集成测试和正式进程一样把这个服务放进同一个 Spring 容器，查询才能等到券。
+    -->
+    <dependency>
+      <groupId>io.servicecomb.poc.demo</groupId>
+      <artifactId>seckill-persist-service</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>

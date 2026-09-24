@@ -18,12 +18,17 @@ package io.servicecomb.poc.demo.seckill.kafka;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,26 +80,52 @@ public class KafkaSecKillEventConsumer implements Runnable {
   /**
    * 循环拉取并投影，直到 {@link #stop}。
    * <p>
-   * 每 500 毫秒 poll 一次。同一批里按记录逐条处理：成功就 {@code commitSync}；失败则发死信再提交。
-   * 无参 {@code commitSync} 提交的是这次 {@code poll} 整批的位移，不是「只提交当前这一条」。
-   * 因此同一批里只要已经成功提交过一次，进程重启后这批剩下的记录不会再次投递。
+   * 每 500 毫秒 poll 一次。同一批里按记录逐条处理：投影成功，或已经写进死信，才把这条的位移记下来。
+   * 整批处理完再 {@code commitSync} 一次，提交的是「下一条要读的位置」，不是还没处理的后半批。
+   * 这样进程在本批中途崩溃时，还没投影、也没进死信的记录会再次投递。投影本身按序号去重。
    */
   @Override
   public void run() {
     while (running.get()) {
-      ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
+      ConsumerRecords<String, String> records;
+      try {
+        records = consumer.poll(Duration.ofMillis(500));
+      } catch (WakeupException wakeup) {
+        // stop() 会 wakeup，让堵在 poll 上的线程立刻出来。这一轮没有新位移要提交。
+        break;
+      }
+      Map<TopicPartition, OffsetAndMetadata> done = new HashMap<TopicPartition, OffsetAndMetadata>();
       for (ConsumerRecord<String, String> record : records) {
         try {
           listener.onEvent(record.value());
-          consumer.commitSync();
         } catch (RuntimeException e) {
-          // 投影失败：原样写入死信 topic，然后仍提交位移，正常 topic 继续向后读。
+          // 投影失败：原样写入死信 topic。死信也失败时，先提交本条之前的位移，本条下次再投递。
           logger.error("Projection failed, send DLT. key={}", record.key(), e);
-          publisher.publishDlt(record.key(), record.value());
-          consumer.commitSync();
+          try {
+            publisher.publishDlt(record.key(), record.value());
+          } catch (RuntimeException dltFailed) {
+            commitProcessed(done);
+            throw dltFailed;
+          }
         }
+        // offset + 1 是下一条要读的位置。同一分区后面的记录会覆盖前面的，因为处理顺序就是记录顺序。
+        done.put(new TopicPartition(record.topic(), record.partition()),
+            new OffsetAndMetadata(record.offset() + 1));
       }
+      commitProcessed(done);
     }
+  }
+
+  /**
+   * 提交已经投影或已转入死信的位移。没有处理完任何记录时不提交。
+   *
+   * @param done 分区到下一条位移。空表直接返回
+   */
+  private void commitProcessed(Map<TopicPartition, OffsetAndMetadata> done) {
+    if (done.isEmpty()) {
+      return;
+    }
+    consumer.commitSync(done);
   }
 
   /**

@@ -35,8 +35,6 @@ package io.servicecomb.poc.demo.seckill.web;
 
 import static org.springframework.http.HttpStatus.OK;
 
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,7 +48,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import io.servicecomb.poc.demo.seckill.dto.PromotionDto;
-import io.servicecomb.poc.demo.seckill.entities.EventEntity;
 import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventType;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
@@ -144,10 +141,8 @@ public class SecKillAdminRestController {
       PromotionEntity promotion = promotionRepository.findTopByPromotionId(promotionId);
       // 活动行存在，再看事件表里有没有「已经开始」。
       if (promotion != null) {
-        List<EventEntity> events = eventRepository.findByPromotionId(promotionId);
-        // 还没有任何事件，或者事件里没有 PromotionStartEvent：允许改活动行。
-        if (events.isEmpty() || events.stream()
-            .noneMatch(event -> SecKillEventType.PromotionStartEvent.equals(event.getType()))) {
+        // 还没有 PromotionStartEvent：允许改活动行。只问有没有这一类，不把事件整表读出来。
+        if (!eventRepository.existsByPromotionIdAndType(promotionId, SecKillEventType.PromotionStartEvent)) {
           promotion.setDiscount(promotionDto.getDiscount());
           promotion.setNumberOfCoupons(promotionDto.getNumberOfCoupons());
           promotion.setPublishTime(promotionDto.getPublishTime());
