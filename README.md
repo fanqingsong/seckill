@@ -66,7 +66,7 @@ flowchart TB
   GW -->|"GET /query/promotions<br/>GET /query/coupons/{id}"| Query
   Admin --> PG
   Cmd -->|"hot path: one Lua"| RedisHot
-  RedisHot -->|"RPUSH grab token"| Worker
+  RedisHot -->|"XADD grab token"| Worker
   Worker -->|"same TX event plus outbox"| PG
   PG -->|"outbox relay"| Kafka
   Kafka --> Event
@@ -126,7 +126,7 @@ sequenceDiagram
     GW-->>FE: 503 command unavailable
   else admitted
     GW->>Cmd: POST /command/coupons/
-    Cmd->>Redis: Lua stock claimed and RPUSH
+    Cmd->>Redis: Lua stock claimed and XADD
     alt accepted
       Redis-->>Cmd: success
       Cmd-->>GW: Request accepted
@@ -139,7 +139,7 @@ sequenceDiagram
   end
 
   Note over Redis,PG: Persist is off the request thread
-  Worker->>Redis: RPOPLPUSH inflight
+  Worker->>Redis: XREADGROUP seckill:grabs
   Worker->>PG: event plus outbox in one transaction
   Note over PG,Kafka: Outbox relay publishes after commit
   PG->>Kafka: seckill.events key=promotionId
@@ -162,7 +162,7 @@ sequenceDiagram
 | `CouponGrabbedEvent` | Lua claim plus queue; worker persists; unique `(promotionId, customerId)` | Redis coupon + ES coupon doc `id=pid:customerId` |
 | `PromotionFinishEvent` | Stock 0 after last persist, or finishTime once the grab queue is empty | Remove Redis promotion; ES finished flag |
 
-Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP `200` means Redis has claimed the coupon; Query lags until the worker and outbox catch up. Unpersisted grab tokens live in Redis lists (`seckill:grabs` / `seckill:grabs:inflight`) and need Redis durability across restarts. If Redis is empty, Command rebuilds stock from the event table. Kafka key is `promotionId` so one promotion is ordered; the projector still buffers `seq` gaps and can `POST /admin/replay?promotionId=&fromSeq=` from PostgreSQL. Failed projections go to `seckill.events.dlt`.
+Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP `200` means Redis has claimed the coupon; Query lags until the worker and outbox catch up. Unpersisted grab tokens live in Redis stream `seckill:grabs` (consumer group `persist`) and need Redis durability across restarts. If Redis is empty, Command rebuilds stock from the event table. Kafka key is `promotionId` so one promotion is ordered; the projector still buffers `seq` gaps and can `POST /admin/replay?promotionId=&fromSeq=` from PostgreSQL. Failed projections go to `seckill.events.dlt`.
 
 ![Event sourcing overview](https://github.com/ServiceComb/seckill/blob/master/etc/EventSourcing.png)
 
@@ -254,7 +254,7 @@ seckill/
 | Boot | [`CommandServiceApplication.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/CommandServiceApplication.java) |
 | HTTP `POST /command/coupons/` | [`web/SecKillCommandRestController.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/web/SecKillCommandRestController.java) |
 | Grab orchestration | [`SecKillCommandService.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/SecKillCommandService.java) |
-| Persist worker (inflight list) | [`GrabPersistWorker.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/GrabPersistWorker.java) |
+| Persist worker (Redis stream) | [`GrabPersistWorker.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/GrabPersistWorker.java) |
 | Same TX event + outbox | [`TransactionalEventOutboxWriter.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/TransactionalEventOutboxWriter.java) |
 | Outbox → Kafka | [`OutboxRelay.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/OutboxRelay.java) |
 | Schedule start / finish | [`SecKillPromotionBootstrap.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/SecKillPromotionBootstrap.java) |
@@ -288,7 +288,7 @@ seckill/
 | Folder | Function | Start review here |
 |--------|----------|-------------------|
 | [`library/seckill-event-store/`](library/seckill-event-store/) | JPA entities, event types, JSON envelope, outbox row | [`entities/`](library/seckill-event-store/src/main/java/io/servicecomb/poc/demo/seckill/entities/), [`event/`](library/seckill-event-store/src/main/java/io/servicecomb/poc/demo/seckill/event/) |
-| [`library/seckill-infra-redis/`](library/seckill-infra-redis/) | Lua stock/claim + grab list; Query read model | [`JedisSecKillStore.java`](library/seckill-infra-redis/src/main/java/io/servicecomb/poc/demo/seckill/redis/JedisSecKillStore.java) (`GRAB_LUA`) |
+| [`library/seckill-infra-redis/`](library/seckill-infra-redis/) | Lua stock/claim + grab stream; Query read model | [`JedisSecKillStore.java`](library/seckill-infra-redis/src/main/java/io/servicecomb/poc/demo/seckill/redis/JedisSecKillStore.java) (`GRAB_LUA`) |
 | [`library/seckill-infra-kafka/`](library/seckill-infra-kafka/) | Producer, consumer, DLT, in-memory bus for tests | [`KafkaSecKillEventPublisher.java`](library/seckill-infra-kafka/src/main/java/io/servicecomb/poc/demo/seckill/kafka/KafkaSecKillEventPublisher.java), [`KafkaSecKillEventConsumer.java`](library/seckill-infra-kafka/src/main/java/io/servicecomb/poc/demo/seckill/kafka/KafkaSecKillEventConsumer.java) |
 | [`library/seckill-infra-es/`](library/seckill-infra-es/) | Index / search coupons and promotions | [`HttpElasticsearchIndex.java`](library/seckill-infra-es/src/main/java/io/servicecomb/poc/demo/seckill/es/HttpElasticsearchIndex.java) |
 

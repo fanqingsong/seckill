@@ -13,6 +13,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -27,7 +29,7 @@ public class InMemorySecKillStore implements SecKillStore {
   private final Map<String, AtomicLong> applied = new ConcurrentHashMap<String, AtomicLong>();
   private final Map<String, List<EventMessageDto>> buffers = new ConcurrentHashMap<String, List<EventMessageDto>>();
   private final AtomicInteger couponId = new AtomicInteger();
-  private final ConcurrentLinkedQueue<GrabToken> pendingGrabs = new ConcurrentLinkedQueue<GrabToken>();
+  private final LinkedBlockingDeque<GrabToken> pendingGrabs = new LinkedBlockingDeque<GrabToken>();
   private final ConcurrentLinkedQueue<GrabToken> inflightGrabs = new ConcurrentLinkedQueue<GrabToken>();
   private final Object grabQueueLock = new Object();
 
@@ -81,15 +83,28 @@ public class InMemorySecKillStore implements SecKillStore {
   }
 
   @Override
-  public GrabToken pollInflight() {
+  public GrabToken pollInflight(long timeoutMillis) {
     synchronized (grabQueueLock) {
       GrabToken inflight = inflightGrabs.peek();
       if (inflight != null) {
         return inflight;
       }
-      GrabToken next = pendingGrabs.poll();
-      if (next == null) {
-        return null;
+    }
+    GrabToken next;
+    try {
+      next = pendingGrabs.poll(Math.max(timeoutMillis, 0), TimeUnit.MILLISECONDS);
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      return null;
+    }
+    if (next == null) {
+      return null;
+    }
+    synchronized (grabQueueLock) {
+      GrabToken inflight = inflightGrabs.peek();
+      if (inflight != null) {
+        pendingGrabs.offerFirst(next);
+        return inflight;
       }
       inflightGrabs.offer(next);
       return next;

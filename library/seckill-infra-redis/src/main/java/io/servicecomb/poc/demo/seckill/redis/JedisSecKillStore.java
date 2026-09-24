@@ -7,15 +7,34 @@ import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.StreamEntryID;
+import redis.clients.jedis.exceptions.JedisDataException;
+import redis.clients.jedis.params.XAutoClaimParams;
+import redis.clients.jedis.params.XReadGroupParams;
+import redis.clients.jedis.resps.StreamEntry;
+import redis.clients.jedis.resps.StreamGroupInfo;
 
 public class JedisSecKillStore implements SecKillStore {
 
   static final String GRABS_KEY = "seckill:grabs";
-  static final String INFLIGHT_KEY = "seckill:grabs:inflight";
+  static final String GRAB_GROUP = "persist";
+  private static final long RECLAIM_IDLE_MS = 30_000L;
+  private static final StreamEntryID CONSUMER_PENDING = new StreamEntryID() {
+    @Override
+    public String toString() {
+      return "0";
+    }
+  };
+
+  private final String consumer = "persist-" + UUID.randomUUID();
+  private volatile boolean groupReady;
 
   private static final String GRAB_LUA =
       "if redis.call('EXISTS', KEYS[1]) == 0 then return {-3, 0, 0} end "
@@ -27,7 +46,7 @@ public class JedisSecKillStore implements SecKillStore {
           + "local seq = redis.call('INCR', KEYS[3]) "
           + "local remaining = stock - 1 "
           + "local payload = ARGV[2] .. '\\t' .. ARGV[1] .. '\\t' .. tostring(seq) .. '\\t' .. tostring(remaining) "
-          + "redis.call('RPUSH', KEYS[4], payload) "
+          + "redis.call('XADD', KEYS[4], '*', 'payload', payload) "
           + "return {1, seq, remaining}";
 
   private static final String COMPENSATE_LUA =
@@ -81,15 +100,20 @@ public class JedisSecKillStore implements SecKillStore {
   }
 
   @Override
-  public GrabToken pollInflight() {
+  public GrabToken pollInflight(long timeoutMillis) {
     Jedis jedis = pool.getResource();
     try {
-      String existing = jedis.lindex(INFLIGHT_KEY, 0);
-      if (existing != null) {
-        return GrabToken.parse(existing);
+      ensureGroup(jedis);
+      GrabToken owned = readOne(jedis, CONSUMER_PENDING, -1);
+      if (owned != null) {
+        return owned;
       }
-      String moved = jedis.rpoplpush(GRABS_KEY, INFLIGHT_KEY);
-      return GrabToken.parse(moved);
+      GrabToken reclaimed = reclaimOne(jedis);
+      if (reclaimed != null) {
+        return reclaimed;
+      }
+      int blockMillis = timeoutMillis > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(timeoutMillis, 0);
+      return readOne(jedis, StreamEntryID.XREADGROUP_UNDELIVERED_ENTRY, blockMillis);
     } finally {
       jedis.close();
     }
@@ -97,12 +121,14 @@ public class JedisSecKillStore implements SecKillStore {
 
   @Override
   public void ackGrab(GrabToken token) {
-    if (token == null) {
+    if (token == null || token.getMessageId() == null) {
       return;
     }
     Jedis jedis = pool.getResource();
     try {
-      jedis.lrem(INFLIGHT_KEY, 1, token.payload());
+      StreamEntryID id = new StreamEntryID(token.getMessageId());
+      jedis.xack(GRABS_KEY, GRAB_GROUP, id);
+      jedis.xdel(GRABS_KEY, id);
     } finally {
       jedis.close();
     }
@@ -115,8 +141,13 @@ public class JedisSecKillStore implements SecKillStore {
     }
     Jedis jedis = pool.getResource();
     try {
-      jedis.lrem(INFLIGHT_KEY, 1, token.payload());
-      jedis.rpush(GRABS_KEY, token.payload());
+      ensureGroup(jedis);
+      jedis.xadd(GRABS_KEY, StreamEntryID.NEW_ENTRY, Collections.singletonMap("payload", token.payload()));
+      if (token.getMessageId() != null) {
+        StreamEntryID id = new StreamEntryID(token.getMessageId());
+        jedis.xack(GRABS_KEY, GRAB_GROUP, id);
+        jedis.xdel(GRABS_KEY, id);
+      }
     } finally {
       jedis.close();
     }
@@ -126,10 +157,90 @@ public class JedisSecKillStore implements SecKillStore {
   public int pendingGrabCount() {
     Jedis jedis = pool.getResource();
     try {
-      return (int) (jedis.llen(GRABS_KEY) + jedis.llen(INFLIGHT_KEY));
+      ensureGroup(jedis);
+      List<StreamGroupInfo> groups = jedis.xinfoGroups(GRABS_KEY);
+      for (StreamGroupInfo group : groups) {
+        if (!GRAB_GROUP.equals(group.getName())) {
+          continue;
+        }
+        Object lag = group.getGroupInfo().get("lag");
+        long undelivered = lag instanceof Number ? ((Number) lag).longValue() : 0L;
+        return (int) (group.getPending() + undelivered);
+      }
+      return 0;
+    } catch (JedisDataException e) {
+      return 0;
     } finally {
       jedis.close();
     }
+  }
+
+  private void ensureGroup(Jedis jedis) {
+    if (groupReady) {
+      return;
+    }
+    synchronized (this) {
+      if (groupReady) {
+        return;
+      }
+      try {
+        jedis.xgroupCreate(GRABS_KEY, GRAB_GROUP, new StreamEntryID(0, 0), true);
+      } catch (JedisDataException e) {
+        if (e.getMessage() == null || !e.getMessage().contains("BUSYGROUP")) {
+          throw e;
+        }
+      }
+      groupReady = true;
+    }
+  }
+
+  private GrabToken readOne(Jedis jedis, StreamEntryID position, int blockMillis) {
+    XReadGroupParams params = XReadGroupParams.xReadGroupParams().count(1);
+    if (blockMillis >= 0) {
+      params.block(blockMillis);
+    }
+    Map<String, StreamEntryID> streams = new HashMap<String, StreamEntryID>();
+    streams.put(GRABS_KEY, position);
+    List<Map.Entry<String, List<StreamEntry>>> batches = jedis.xreadGroup(GRAB_GROUP, consumer, params, streams);
+    return firstToken(batches);
+  }
+
+  private GrabToken reclaimOne(Jedis jedis) {
+    Map.Entry<StreamEntryID, List<StreamEntry>> claimed = jedis.xautoclaim(GRABS_KEY, GRAB_GROUP, consumer,
+        RECLAIM_IDLE_MS, StreamEntryID.MINIMUM_ID, XAutoClaimParams.xAutoClaimParams().count(1));
+    if (claimed == null || claimed.getValue() == null || claimed.getValue().isEmpty()) {
+      return null;
+    }
+    return toToken(claimed.getValue().get(0));
+  }
+
+  private GrabToken firstToken(List<Map.Entry<String, List<StreamEntry>>> batches) {
+    if (batches == null) {
+      return null;
+    }
+    for (Map.Entry<String, List<StreamEntry>> batch : batches) {
+      if (batch.getValue() == null) {
+        continue;
+      }
+      for (StreamEntry entry : batch.getValue()) {
+        GrabToken token = toToken(entry);
+        if (token != null) {
+          return token;
+        }
+      }
+    }
+    return null;
+  }
+
+  private GrabToken toToken(StreamEntry entry) {
+    if (entry == null || entry.getFields() == null) {
+      return null;
+    }
+    GrabToken token = GrabToken.parse(entry.getFields().get("payload"));
+    if (token == null || entry.getID() == null) {
+      return token;
+    }
+    return token.withMessageId(entry.getID().toString());
   }
 
   @Override

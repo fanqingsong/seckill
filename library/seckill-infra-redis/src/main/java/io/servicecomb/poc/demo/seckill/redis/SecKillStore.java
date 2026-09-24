@@ -14,7 +14,7 @@ public interface SecKillStore {
 
   void compensateGrab(String promotionId, String customerId);
 
-  GrabToken pollInflight();
+  GrabToken pollInflight(long timeoutMillis);
 
   void ackGrab(GrabToken token);
 

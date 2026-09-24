@@ -9,13 +9,19 @@ public final class GrabToken {
   private final long seq;
   private final long remaining;
   private final String payload;
+  private final String messageId;
 
   public GrabToken(String promotionId, String customerId, long seq, long remaining) {
+    this(promotionId, customerId, seq, remaining, null);
+  }
+
+  private GrabToken(String promotionId, String customerId, long seq, long remaining, String messageId) {
     this.promotionId = promotionId;
     this.customerId = customerId;
     this.seq = seq;
     this.remaining = remaining;
     this.payload = promotionId + SEP + customerId + SEP + seq + SEP + remaining;
+    this.messageId = messageId;
   }
 
   public static GrabToken parse(String payload) {
@@ -47,6 +53,14 @@ public final class GrabToken {
 
   public String payload() {
     return payload;
+  }
+
+  public String getMessageId() {
+    return messageId;
+  }
+
+  public GrabToken withMessageId(String messageId) {
+    return new GrabToken(promotionId, customerId, seq, remaining, messageId);
   }
 
   @Override
