@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-service
+  namespace: seckill
+spec:
+  selector:
+    app: event-service
+  ports:
+    - name: http
+      port: 8084
+      targetPort: 8084
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-service
+  namespace: seckill
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: event-service
+  template:
+    metadata:
+      labels:
+        app: event-service
+      annotations:
+        traffic.sidecar.istio.io/excludeOutboundPorts: "5432,6379,9092,9200"
+    spec:
+      containers:
+        - name: event
+          image: seckill-event-service:0.2.0-SNAPSHOT
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: JAVA_OPTS
+              value: >-
+                -Dspring.profiles.active=prd
+                -Dspring.datasource.url=jdbc:postgresql://postgres:5432/seckill
+                -Dseckill.redis.host=redis
+                -Dseckill.kafka.bootstrap=kafka:9092
+                -Dseckill.es.url=http://elasticsearch:9200
+          ports:
+            - containerPort: 8084
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8084
+            initialDelaySeconds: 25
+            periodSeconds: 5

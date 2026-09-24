@@ -27,6 +27,12 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+/**
+ * 守护按券编号增量拉取：{@code GET /sync/{id}} 只返回编号比给定值更新的券。
+ * <p>
+ * 券先写入 {@link SecKillStore}。这个接口给同步用，页面上的「我的券」走的是 /query，不是这里。
+ * 本文件没有出现 Kafka、Elasticsearch 或 H2。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = QueryServiceApplication.class)
 @AutoConfigureMockMvc
@@ -43,6 +49,11 @@ public class SecKillQueryServiceApplicationSyncTest {
   @Autowired
   private MockMvc mockMvc;
 
+  /**
+   * 前置：同一顾客在三个活动下各有一张券。
+   * 动作：先 GET /sync/0，再按返回编号从小到大，用这三张券的编号各拉一次。
+   * 期望：第一次含三个活动；之后依次少掉已经见过的活动；用最后一张的编号再拉时正文是 []。
+   */
   @Test
   public void syncCoupon() throws Exception {
     addCouponToCustomer(customerId, promotion1);

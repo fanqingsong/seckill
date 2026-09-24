@@ -1,0 +1,56 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: admin-service
+  namespace: seckill
+spec:
+  host: admin-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        connectTimeout: 1s
+    outlierDetection:
+      consecutive5xxErrors: 10
+      interval: 1s
+      baseEjectionTime: 5s
+      maxEjectionPercent: 100
+      minHealthPercent: 0
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: command-service
+  namespace: seckill
+spec:
+  host: command-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        connectTimeout: 1s
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 1
+    outlierDetection:
+      consecutive5xxErrors: 10
+      interval: 1s
+      baseEjectionTime: 5s
+      maxEjectionPercent: 100
+      minHealthPercent: 0
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: query-service
+  namespace: seckill
+spec:
+  host: query-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        connectTimeout: 1s
+    outlierDetection:
+      consecutive5xxErrors: 10
+      interval: 1s
+      baseEjectionTime: 5s
+      maxEjectionPercent: 100
+      minHealthPercent: 0

@@ -32,6 +32,13 @@ import io.servicecomb.poc.demo.GatewayApplication;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
+/**
+ * 守护网关对抢券路径的限流：突发容量用完后，下一笔请求不再转到下游。
+ * <p>
+ * {@code seckill.gateway.rate-limiter=memory} 表示计数在内存里，不连 Redis。
+ * 下游是本机 {@link MockWebServer}，不是真正的 Command 服务。没有 Kafka、Elasticsearch 或 H2。
+ * {@code @AutoConfigureWebTestClient} 提供 {@link WebTestClient}，用来对随机端口发请求。
+ */
 @SpringBootTest(
     classes = GatewayApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -69,6 +76,11 @@ class GatewayRateLimiterTest {
   @Autowired
   private WebTestClient webTestClient;
 
+  /**
+   * 前置：抢券限流的突发容量是 1，下游会回答 200 accepted。
+   * 动作：连续两次 POST /command/coupons/。
+   * 期望：第一次 HTTP 200 且正文是 accepted；第二次 HTTP 429，响应里带有剩余配额头。
+   */
   @Test
   void rejectsWhenBurstExceeded() {
     downstream.enqueue(new MockResponse()

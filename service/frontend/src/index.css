@@ -1,3 +1,4 @@
+/* 全站颜色和字体。页面各块用 var(--名字) 引用，不在这里画具体区域。 */
 :root {
   color-scheme: dark;
   --bg: #14110f;
@@ -11,10 +12,12 @@
   font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", serif;
 }
 
+/* 让宽高包含边框，避免表单和卡片把 padding 算到外面。 */
 * {
   box-sizing: border-box;
 }
 
+/* 页面根节点撑满窗口，去掉浏览器默认外边距。 */
 html,
 body,
 #root {
@@ -22,6 +25,7 @@ body,
   min-height: 100%;
 }
 
+/* 正文背景和默认文字颜色。 */
 body {
   background:
     radial-gradient(1200px 500px at 10% -10%, rgba(226, 61, 40, 0.18), transparent 50%),
@@ -29,6 +33,7 @@ body {
   color: var(--ink);
 }
 
+/* 按钮和输入框跟正文用同一套字体；按钮显示手型光标。 */
 button,
 input {
   font: inherit;

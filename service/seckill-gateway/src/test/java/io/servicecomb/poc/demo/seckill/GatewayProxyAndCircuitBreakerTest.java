@@ -31,6 +31,12 @@ import io.servicecomb.poc.demo.GatewayApplication;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
+/**
+ * 守护网关转发和失败时的回退：查询成功原样返回，业务上的 429 原样透传，下游 500 则变成 503。
+ * <p>
+ * {@code seckill.gateway.rate-limiter=memory} 使用内存限流。三个上游地址都指向同一个 {@link MockWebServer}。
+ * 没有 Kafka、Elasticsearch 或 H2。
+ */
 @SpringBootTest(classes = GatewayApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
 class GatewayProxyAndCircuitBreakerTest {
@@ -62,6 +68,11 @@ class GatewayProxyAndCircuitBreakerTest {
   @Autowired
   private WebTestClient webTestClient;
 
+  /**
+   * 前置：下游对下一次请求回答 200，正文 ok。
+   * 动作：GET /query/promotions。
+   * 期望：网关也是 HTTP 200，正文仍是 ok。
+   */
   @Test
   void proxiesSuccessfulQuery() {
     downstream.enqueue(new MockResponse()
@@ -76,6 +87,11 @@ class GatewayProxyAndCircuitBreakerTest {
         .expectBody(String.class).isEqualTo("ok");
   }
 
+  /**
+   * 前置：下游对抢券回答 429，正文 out of stock。
+   * 动作：POST /command/coupons/。
+   * 期望：网关原样返回 HTTP 429 和这段正文，不改成熔断文案。
+   */
   @Test
   void passesThroughBusinessTooManyRequests() {
     downstream.enqueue(new MockResponse()
@@ -90,6 +106,11 @@ class GatewayProxyAndCircuitBreakerTest {
         .expectBody(String.class).isEqualTo("out of stock");
   }
 
+  /**
+   * 前置：下游对查询回答 500。
+   * 动作：GET /query/promotions。
+   * 期望：网关返回 HTTP 503，正文是 query unavailable。
+   */
   @Test
   void fallsBackWhenDownstreamReturnsServerError() {
     downstream.enqueue(new MockResponse().setResponseCode(500).setBody("boom"));

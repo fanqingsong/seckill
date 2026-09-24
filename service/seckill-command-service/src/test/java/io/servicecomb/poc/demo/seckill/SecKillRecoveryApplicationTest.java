@@ -50,6 +50,12 @@ import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionReposi
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRepository;
 import io.servicecomb.poc.demo.seckill.web.SecKillCommandRestController;
 
+/**
+ * 守护进程按已有事件恢复后，抢券 HTTP 的三种结果：重复顾客、还能抢、卖完。
+ * <p>
+ * 测试先把开始事件和若干抢券事件写入事件仓库，再等待应用把库存恢复出来。
+ * 本文件没有出现 Redis、Kafka、Elasticsearch 或 H2 的类型或配置。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = CommandServiceApplication.class)
 @WebAppConfiguration
@@ -78,6 +84,12 @@ public class SecKillRecoveryApplicationTest {
         .build();
   }
 
+  /**
+   * 前置：活动共 10 张券；事件里已有开始，以及顾客 0、2、4、6、8 抢到。
+   * 动作：等待约 2 秒后，用顾客 0 到 10 各抢一次，再对一个随机活动编号抢一次。
+   * 期望：偶数顾客 HTTP 429 且正文含 duplicate order；奇数顾客 HTTP 200；
+   * 顾客 10 是 HTTP 429 且正文含 out of stock；未知活动 HTTP 400 且正文含 Invalid promotion。
+   */
   @Test
   public void recoveryServiceSuccessfully() throws Exception {
     //init failed promotion status

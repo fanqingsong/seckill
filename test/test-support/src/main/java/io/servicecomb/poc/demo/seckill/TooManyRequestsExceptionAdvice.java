@@ -21,7 +21,23 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
+/**
+ * 测试用的异常处理片段：把抛出的异常变成 HTTP 429。
+ * <p>
+ * 业务代码里限流失败会抛异常，Spring MVC 默认不一定按我们要的状态码写出响应。
+ * 测试把本类交给 {@link InvocationExceptionHandlerExceptionResolver}，由它在状态码已是 429 时调用这里。
+ * {@code @ExceptionHandler(Exception.class)} 表示这个方法处理异常；
+ * {@code @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)} 把响应状态固定为 429 Too Many Requests。
+ * 本类不参与真实 Gateway 限流，也不写业务数据。
+ */
 class TooManyRequestsExceptionAdvice {
+
+  /**
+   * 把异常信息放进响应体。
+   *
+   * @param e 测试里抛出的异常，消息会成为正文
+   * @return 包着异常消息的 HTTP 实体，状态码由类上的注解决定为 429
+   */
   @ExceptionHandler(Exception.class)
   @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
   public Object exceptionHandler(Exception e) {

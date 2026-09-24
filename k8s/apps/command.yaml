@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: command-service
+  namespace: seckill
+spec:
+  selector:
+    app: command-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: command-service
+  namespace: seckill
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: command-service
+  template:
+    metadata:
+      labels:
+        app: command-service
+      annotations:
+        traffic.sidecar.istio.io/excludeOutboundPorts: "5432,6379,9092,9200"
+    spec:
+      containers:
+        - name: command
+          image: seckill-command-service:0.2.0-SNAPSHOT
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: JAVA_OPTS
+              value: >-
+                -Dspring.profiles.active=prd
+                -Dspring.datasource.url=jdbc:postgresql://postgres:5432/seckill
+                -Dseckill.redis.host=redis
+                -Dseckill.kafka.bootstrap=kafka:9092
+          ports:
+            - containerPort: 8082
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 25
+            periodSeconds: 5

@@ -16,9 +16,30 @@
 
 package io.servicecomb.poc.demo.seckill;
 
+/**
+ * 把 Java 对象和 JSON 字符串互转的抽象。事件正文和 outbox 都依赖它，具体实现是 Jackson。
+ * <p>
+ * {@link SecKillJacksonConfig} 注册唯一实现。Command、Persist 用它序列化消息；Event 服务用它
+ * 反序列化 Kafka 正文。接口本身不访问 PostgreSQL、Redis、Kafka 或 Elasticsearch。
+ * 方法上的 {@code <T>} 是泛型方法：{@code type} 参数决定还原出来的类型。
+ */
 public interface Format {
 
+  /**
+   * 把对象写成 JSON。
+   *
+   * @param obj 活动、券或消息
+   * @return JSON 文本。实现失败时抛出 {@link SecKillException}
+   */
   String serialize(Object obj);
 
+  /**
+   * 把 JSON 还原成指定类型。
+   *
+   * @param content JSON 文本
+   * @param type 目标类
+   * @param <T> 目标类型，与 {@code type} 一致
+   * @return 还原后的对象
+   */
   <T> T deserialize(String content,Class<T> type);
 }

@@ -43,6 +43,12 @@ import io.servicecomb.poc.demo.seckill.repositories.spring.SpringCouponRepositor
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRepository;
 
+/**
+ * 守护一条完整用户路径：创建活动、等到可以抢、抢券、再查到这位顾客的券。
+ * <p>
+ * {@code @SpringBootTest} 启动 {@link IntegrationTestApplication}，三个 HTTP 路径都打在同一个 MockMvc 上。
+ * {@code setUp} 会清空活动、事件和券仓库。本文件没有出现 Redis、Kafka、Elasticsearch 或 H2 的类型或配置。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = IntegrationTestApplication.class)
 @WebAppConfiguration
@@ -70,6 +76,11 @@ public class SecKillIntegrationTest {
     promotionRepository.deleteAll();
   }
 
+  /**
+   * 前置：三个仓库已清空，活动开始时间是当前时刻。
+   * 动作：POST /admin/promotions/ 创建 5 张券，等待 1 秒后让顾客 zyy POST /command/coupons/，再等 1 秒 GET 该顾客的券。
+   * 期望：创建成功；抢券 HTTP 200 且正文是 Request accepted；查询 HTTP 200，正文同时含活动编号和 zyy。
+   */
   @Test
   public void createPromotionAndGrabSuccessfully() throws Exception {
     MvcResult result = mockMvc.perform(post("/admin/promotions/").contentType(APPLICATION_JSON)

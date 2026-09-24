@@ -37,6 +37,12 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 
+/**
+ * 守护按事件列表判断活动有没有开始、有没有结束、还剩几张券、谁已经抢过。
+ * <p>
+ * {@link SpringSecKillEventRepository} 是 Mockito 假对象，三种活动的事件在 {@code setup} 里写死。
+ * 不连接数据库、Redis、Kafka 或 Elasticsearch，也没有 H2。
+ */
 public class SecKillRecoveryServiceTest {
 
   private final PromotionEntity unpublishedPromotion = new PromotionEntity(new Date(), 5, 0.7f);
@@ -71,6 +77,11 @@ public class SecKillRecoveryServiceTest {
         .thenReturn(endedPromotionEvents);
   }
 
+  /**
+   * 前置：这个活动的事件列表是空的。
+   * 动作：调用 recoveryService.check。
+   * 期望：未开始、未结束，剩余券数等于活动券数，已抢顾客为空。
+   */
   @Test
   public void unstartPromotionCheck() {
     SecKillRecoveryCheckResult<String> result = recoveryService.check(unpublishedPromotion);
@@ -80,6 +91,11 @@ public class SecKillRecoveryServiceTest {
     assertThat(result.getClaimedCustomers().isEmpty(), is(true));
   }
 
+  /**
+   * 前置：事件里有一次开始，以及顾客 zyy 抢到一张。
+   * 动作：检查这个仍在进行的活动。
+   * 期望：已开始、未结束，剩余券数比总数少 1，已抢顾客里有 zyy。
+   */
   @Test
   public void recoverPromotionCheck() {
     SecKillRecoveryCheckResult<String> result = recoveryService.check(runningPromotion);
@@ -89,6 +105,11 @@ public class SecKillRecoveryServiceTest {
     assertThat(result.getClaimedCustomers(), contains("zyy"));
   }
 
+  /**
+   * 前置：事件含开始、5 张券全部被 0 到 4 抢走，以及结束。
+   * 动作：检查这个已结束的活动。
+   * 期望：已开始且已结束，剩余券数是 0，已抢顾客依次是 0、1、2、3、4。
+   */
   @Test
   public void finishPromotionCheck() {
     SecKillRecoveryCheckResult<String> result = recoveryService.check(endedPromotion);

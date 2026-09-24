@@ -22,6 +22,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+/**
+ * 守护 Persist 服务：库存扣减成功后，后台把抢券结果写成事件；卖完时再写一条结束事件。
+ * <p>
+ * {@code @SpringBootTest} 启动 Persist 应用。库存通过 {@link SecKillStore} 扣减，事件从 Spring 仓库读回。
+ * 本文件没有出现 Kafka、Elasticsearch 或 H2 的类型或配置。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = PersistServiceApplication.class)
 public class GrabPersistWorkerTest {
@@ -41,6 +47,11 @@ public class GrabPersistWorkerTest {
   @Autowired
   private SpringSecKillEventRepository eventRepository;
 
+  /**
+   * 前置：活动有 5 张券，库存已初始化。
+   * 动作：顾客 c1 调用 tryGrab 并成功。
+   * 期望：两秒内事件表出现至少一条 CouponGrabbedEvent，顾客编号是 c1。
+   */
   @Test
   public void drainPersistsGrabbedEvent() {
     PromotionEntity promotion = savedPromotion(5);
@@ -51,6 +62,11 @@ public class GrabPersistWorkerTest {
     assertThat(eventRepository.findByPromotionId(promotion.getPromotionId()).get(0).getCustomerId(), is("c1"));
   }
 
+  /**
+   * 前置：顾客 dup 的抢券事件已经在仓库里；库存重新初始化后待处理条数记下来。
+   * 动作：同一顾客再次 tryGrab 成功。
+   * 期望：两秒内待处理条数回到抢之前或更少，该活动的抢券事件仍然只有 1 条。
+   */
   @Test
   public void duplicatePersistStillAcksToken() {
     PromotionEntity promotion = savedPromotion(5);
@@ -65,6 +81,11 @@ public class GrabPersistWorkerTest {
     assertThat(count(promotion.getPromotionId(), SecKillEventType.CouponGrabbedEvent), is(1L));
   }
 
+  /**
+   * 前置：活动只剩 1 张券。
+   * 动作：顾客 last 把它抢走。
+   * 期望：两秒内结束事件恰好出现 1 条，不会重复写。
+   */
   @Test
   public void lastCouponWritesFinishEventOnce() {
     PromotionEntity promotion = savedPromotion(1);

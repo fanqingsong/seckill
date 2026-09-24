@@ -1,0 +1,56 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: seckill
+  namespace: seckill
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - seckill
+  http:
+    - name: admin
+      match:
+        - uri:
+            prefix: /admin/promotions
+      timeout: 2s
+      retries:
+        attempts: 0
+      route:
+        - destination:
+            host: admin-service
+            port:
+              number: 8081
+    - name: command
+      match:
+        - uri:
+            prefix: /command/
+      timeout: 800ms
+      retries:
+        attempts: 0
+      route:
+        - destination:
+            host: command-service
+            port:
+              number: 8082
+    - name: query
+      match:
+        - uri:
+            prefix: /query/
+      timeout: 2s
+      retries:
+        attempts: 0
+      route:
+        - destination:
+            host: query-service
+            port:
+              number: 8083
+    - name: frontend
+      match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: frontend
+            port:
+              number: 80

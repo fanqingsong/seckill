@@ -1,9 +1,11 @@
+/* 整页宽度和左右留白，包住标题、横幅和下面两列。 */
 .page {
   max-width: 1120px;
   margin: 0 auto;
   padding: 32px 20px 64px;
 }
 
+/* 页头：眉题、标题和说明文字。 */
 .hero {
   display: flex;
   justify-content: space-between;
@@ -34,12 +36,14 @@ h1 {
   max-width: 36em;
 }
 
+/* 两列：左边创建活动，右边活动列表和我的券。 */
 .grid {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 20px;
 }
 
+/* 左右两块面板，以及面板里的小标题。 */
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -52,6 +56,7 @@ h1 {
   font-size: 20px;
 }
 
+/* 创建活动表单里的一行标签和输入框。 */
 .field {
   display: flex;
   flex-direction: column;
@@ -69,6 +74,7 @@ h1 {
   padding: 9px 10px;
 }
 
+/* 活动列表上方的顾客编号和刷新按钮。 */
 .toolbar {
   display: flex;
   gap: 10px;
@@ -85,6 +91,7 @@ h1 {
   padding: 9px 10px;
 }
 
+/* 发布、刷新、抢券三颗按钮，以及悬停时的颜色。 */
 .primary,
 .ghost,
 .grab {
@@ -116,6 +123,7 @@ h1 {
   color: #fff7ef;
 }
 
+/* 页头下面的结果横幅：失败偏红，成功（.ok）偏金。 */
 .banner {
   margin: 0 0 16px;
   padding: 10px 12px;
@@ -129,6 +137,7 @@ h1 {
   color: #f3d48a;
 }
 
+/* 活动卡片和券卡片，以及空列表时的提示。 */
 .list {
   display: flex;
   flex-direction: column;
@@ -161,6 +170,7 @@ h1 {
   color: var(--muted);
 }
 
+/* 窄屏时页头和两列都改成上下堆叠。 */
 @media (max-width: 840px) {
   .grid,
   .hero {

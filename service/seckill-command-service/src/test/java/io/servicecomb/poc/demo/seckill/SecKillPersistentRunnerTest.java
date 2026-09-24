@@ -18,6 +18,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+/**
+ * 守护抢券结果写入事件表：调用 {@link TransactionalEventOutboxWriter#persist} 后，
+ * 事件仓库里能按活动编号查到这位顾客。
+ * <p>
+ * {@code @SpringBootTest} 启动 Command 应用。本文件没有出现 Redis、Kafka、Elasticsearch 或 H2 的类型或配置。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = CommandServiceApplication.class)
 public class SecKillPersistentRunnerTest {
@@ -31,6 +37,11 @@ public class SecKillPersistentRunnerTest {
   @Autowired
   private SecKillEventFormat eventFormat;
 
+  /**
+   * 前置：新建一个 5 张券的活动，并构造顾客 0 的抢券事件。
+   * 动作：把事件交给 writer.persist。
+   * 期望：两秒内事件仓库至少有一条，顾客编号是 0。
+   */
   @Test
   public void persistGrabWritesEventAndOutbox() {
     PromotionEntity promotion = new PromotionEntity(new Date(), 5, 0.7f);

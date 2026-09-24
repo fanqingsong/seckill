@@ -20,9 +20,24 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
+/**
+ * 集成测试用的 Spring Boot 启动类。{@link SecKillIntegrationTest} 等测试通过
+ * {@code @SpringBootTest(classes = IntegrationTestApplication.class)} 拉起它，而不是单独启动某一个服务。
+ * <p>
+ * {@code @SpringBootApplication} 表示 Spring 从本包开始扫描并装配 Bean。
+ * {@code @EnableTransactionManagement(proxyTargetClass = true)} 打开事务，并使用类代理，
+ * 这样写事件和 outbox 可以放在同一个数据库事务里。
+ * {@code main} 只是本地启动入口，测试本身不会调用它。
+ * 本文件没有声明 Redis、Kafka、Elasticsearch 或 H2。
+ */
 @SpringBootApplication
 @EnableTransactionManagement(proxyTargetClass = true)
 public class IntegrationTestApplication {
+  /**
+   * 用本类作为配置源启动 Spring。集成测试不走这个方法。
+   *
+   * @param args 命令行参数，测试里不会用到
+   */
   public static void main(String[] args) {
     SpringApplication.run(IntegrationTestApplication.class, args);
   }

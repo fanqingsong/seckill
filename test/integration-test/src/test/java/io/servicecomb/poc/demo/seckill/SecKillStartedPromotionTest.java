@@ -41,6 +41,11 @@ import io.servicecomb.poc.demo.seckill.dto.PromotionDto;
 import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
 import io.servicecomb.poc.demo.seckill.web.SecKillAdminRestController;
 
+/**
+ * 守护「活动已经开始就不能再改」：创建时开始时间就是现在，等它开始后再 PUT 应被拒绝。
+ * <p>
+ * 只装配了 Admin 控制器的独立 MockMvc。本文件没有出现 Redis、Kafka、Elasticsearch 或 H2。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = IntegrationTestApplication.class)
 @WebAppConfiguration
@@ -59,6 +64,11 @@ public class SecKillStartedPromotionTest {
         .build();
   }
 
+  /**
+   * 前置：创建一条开始时间是现在的活动，并等待约 1 秒让它进入已开始。
+   * 动作：用同一活动编号 PUT 一份新的活动内容。
+   * 期望：HTTP 400，正文含 PromotionEntity had started and changes is rejected。
+   */
   @Test
   public void failsUpdatePromotionWhenPromotionHadStarted() throws Exception {
     MvcResult result = mockMvc.perform(post("/admin/promotions/").contentType(APPLICATION_JSON)

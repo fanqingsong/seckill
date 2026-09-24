@@ -42,6 +42,12 @@ import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
 import io.servicecomb.poc.demo.seckill.web.SecKillCommandRestController;
 
+/**
+ * 守护「没到开始时间不能抢，到点之后可以抢」。
+ * <p>
+ * 活动先写入 {@link SpringPromotionRepository}。Command 里的定时任务要等到 publishTime
+ * 才把这个活动放进可抢列表。本文件没有出现 Redis、Kafka、Elasticsearch 或 H2。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = CommandServiceApplication.class)
 @WebAppConfiguration
@@ -65,6 +71,11 @@ public class SecKillPromotionBootstrapTest {
     promotionRepository.deleteAll();
   }
 
+  /**
+   * 前置：活动开始时间大约在 1 秒之后，仓库里已有这条活动。
+   * 动作：立刻抢一次，睡过开始时间后再抢一次。
+   * 期望：第一次 HTTP 400 且正文含 Invalid promotion；第二次 HTTP 200，正文是 Request accepted。
+   */
   @Test
   public void testPromotionStartedWhenPublishTimeReach() throws Exception {
     int waitTime = 1000;

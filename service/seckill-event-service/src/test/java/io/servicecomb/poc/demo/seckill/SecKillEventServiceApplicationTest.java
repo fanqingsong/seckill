@@ -25,6 +25,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+/**
+ * 守护 Event 服务把事件投影进读模型：活动开始后出现在进行中列表，结束后消失，抢券后能按顾客读到券。
+ * <p>
+ * {@code @SpringBootTest} 启动 Event 应用，测试直接调用 {@link EventProjector#project}，不经过 HTTP。
+ * 本文件没有出现 Kafka、Elasticsearch 或 H2 的类型或配置。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = EventServiceApplication.class)
 public class SecKillEventServiceApplicationTest {
@@ -41,6 +47,11 @@ public class SecKillEventServiceApplicationTest {
   private final PromotionEntity promotion1 = generatePromotion();
   private final PromotionEntity promotion2 = generatePromotion();
 
+  /**
+   * 前置：两个活动都还没投影。
+   * 动作：各投影一条开始事件，再给 promotion1 投影结束事件。
+   * 期望：开始后进行中的活动有 2 个；结束后只剩下 promotion2。
+   */
   @Test
   public void receivePromotionEventMessage() {
     projector.project(message(new PromotionStartEvent(promotion1), 1));
@@ -57,6 +68,11 @@ public class SecKillEventServiceApplicationTest {
     assertThat(promotions, contains(hasProperty("promotionId", is(promotion2.getPromotionId()))));
   }
 
+  /**
+   * 前置：顾客 zyy 的读模型还是空的。
+   * 动作：投影一条该顾客抢到 promotion1 的事件。
+   * 期望：按 zyy 能读到 1 张券，顾客编号是 zyy。
+   */
   @Test
   public void projectCouponGrab() {
     projector.project(message(new CouponGrabbedEvent<String>(promotion1, "zyy"), 1));

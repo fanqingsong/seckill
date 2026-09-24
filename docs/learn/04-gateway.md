@@ -62,4 +62,6 @@ Command 抢光或重复下单时返回的 **429** 不在这个集合里。Gatewa
 2. Command 返回 429 时，浏览器会不会收到 `command unavailable`？
 3. `commandCb` 这个字符串在 Java 和 properties 里各出现在什么位置？
 
+Kubernetes 上可以用 Istio 接过本课的转发、限流和熔断，见 [`k8s/README.md`](../../k8s/README.md)。Compose 仍走本进程。
+
 下一课：[05-admin.md](05-admin.md)

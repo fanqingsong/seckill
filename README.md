@@ -343,7 +343,9 @@ Java services take about 30 seconds after containers are up (Kafka healthcheck i
 
 Local jar mode (JDK 17): `mvn -DskipTests package`, then `java -jar service/<module>/target/seckill/<artifact>-0.2.0-SNAPSHOT-exec.jar` with `spring.profiles.active=prd` if you are talking to Compose infra. Tests stay on `seckill.infra.mode=memory`.
 
-The Compose file is the only supported stack. There is no ZooKeeper / ActiveMQ / MySQL Compose overlay.
+The Compose file is the default local stack. There is no ZooKeeper / ActiveMQ / MySQL Compose overlay.
+
+To replace **Gateway** (routing, per-IP rate limit, timeout, circuit breaker) with Istio on Kubernetes, see [`k8s/README.md`](k8s/README.md). Compose is unchanged and still uses `seckill-gateway`.
 
 ## Run Tests
 

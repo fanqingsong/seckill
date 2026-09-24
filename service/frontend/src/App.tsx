@@ -2,19 +2,34 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { createPromotion, grabCoupon, listCoupons, listPromotions, type Coupon, type Promotion } from './api'
 import './App.css'
 
+/**
+ * 把 Date 收成 datetime-local 需要的「年-月-日T时:分」。
+ * 只给创建活动表单用，不请求后端。
+ */
 function toLocalInput(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+/**
+ * 把毫秒时间戳显示成浏览器本地时间，用在活动卡片和「我的券」上。
+ */
 function formatTime(epoch: number): string {
   return new Date(epoch).toLocaleString()
 }
 
+/**
+ * 等待若干毫秒。创建活动后等读模型，抢券后也会隔一会儿再查 /query。
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * 秒杀柜台整页。浏览器只访问 nginx :8080，不连接 PostgreSQL。
+ * 左侧表单走 /admin 创建活动；活动列表和「我的券」走 /query；「抢券」走 /command。
+ * 抢券 HTTP 成功只表示请求被接受，所以下面会多次刷新，直到查询里出现这张券或次数用完。
+ */
 export default function App() {
   const now = useMemo(() => new Date(), [])
   const [publishTime, setPublishTime] = useState(toLocalInput(now))
@@ -28,6 +43,10 @@ export default function App() {
   const [ok, setOk] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  /**
+   * 同时请求 GET /query/promotions 和 GET /query/coupons/{顾客编号}，刷新右侧两块列表。
+   * 顾客编号为空时不请求券接口，列表保持空数组。
+   */
   const refresh = useCallback(async () => {
     const [nextPromotions, nextCoupons] = await Promise.all([
       listPromotions(),
@@ -44,6 +63,10 @@ export default function App() {
     })
   }, [refresh])
 
+  /**
+   * 提交「创建活动」表单，调用 POST /admin/promotions/。
+   * 成功后等一小会儿再 refresh，因为进行中的活动要等 Command 到点初始化后才会出现在 /query。
+   */
   async function onCreate(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
@@ -66,6 +89,10 @@ export default function App() {
     }
   }
 
+  /**
+   * 用当前顾客编号抢指定活动，调用 POST /command/coupons/。
+   * 成功后最多刷新 10 次 /query，直到「我的券」里出现这场活动，或次数用完。
+   */
   async function onGrab(promotionId: string) {
     if (!customerId.trim()) {
       setOk(false)
@@ -77,8 +104,8 @@ export default function App() {
       const result = await grabCoupon(promotionId, customerId.trim())
       setOk(true)
       setMessage(result.replace(/^"|"$/g, ''))
-      for (let i = 0; i < 6; i += 1) {
-        await sleep(700)
+      for (let i = 0; i < 10; i += 1) {
+        await sleep(800)
         await refresh()
         const latest = await listCoupons(customerId.trim())
         if (latest.some((coupon) => coupon.promotionId === promotionId)) {

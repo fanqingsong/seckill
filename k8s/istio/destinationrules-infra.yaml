@@ -1,0 +1,54 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: postgres
+  namespace: seckill
+spec:
+  host: postgres.seckill.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: redis
+  namespace: seckill
+spec:
+  host: redis.seckill.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: kafka
+  namespace: seckill
+spec:
+  host: kafka.seckill.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: elasticsearch
+  namespace: seckill
+spec:
+  host: elasticsearch.seckill.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: ratelimit
+  namespace: seckill
+spec:
+  host: ratelimit.seckill.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE

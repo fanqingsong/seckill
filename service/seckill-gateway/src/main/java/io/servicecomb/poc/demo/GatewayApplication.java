@@ -25,6 +25,18 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 
 import io.servicecomb.poc.demo.seckill.gateway.SecKillGatewayProperties;
 
+/**
+ * Gateway 的进程入口。按路径转发、限流、熔断，不写活动、库存或券。
+ * <p>
+ * {@code @SpringBootApplication} 从本类所在包扫描组件并启动 HTTP（本服务端口 8085）。
+ * {@code exclude} 关掉 Redis 自动配置：默认限流在内存里，不需要一启动就连 Redis。
+ * 只有 {@code seckill.gateway.rate-limiter=redis} 时，限流配置类才自己创建连接。
+ * {@code @EnableConfigurationProperties} 注册 {@link SecKillGatewayProperties}，
+ * {@code seckill.gateway.*} 才会绑定到那个对象。
+ * <p>
+ * 浏览器访问前端 nginx 8080，nginx 把 {@code /admin}、{@code /command}、{@code /query} 转到这里，
+ * 再由路由转到 8081、8082、8083。回放接口不从这条代理进来。
+ */
 @SpringBootApplication(exclude = {
     RedisAutoConfiguration.class,
     RedisReactiveAutoConfiguration.class,
@@ -32,6 +44,12 @@ import io.servicecomb.poc.demo.seckill.gateway.SecKillGatewayProperties;
 })
 @EnableConfigurationProperties(SecKillGatewayProperties.class)
 public class GatewayApplication {
+
+  /**
+   * 创建 Spring 容器并开始监听 HTTP。
+   *
+   * @param args 命令行参数，Spring Boot 会把它并入配置，这里不解析业务含义
+   */
   public static void main(String[] args) {
     SpringApplication.run(GatewayApplication.class, args);
   }

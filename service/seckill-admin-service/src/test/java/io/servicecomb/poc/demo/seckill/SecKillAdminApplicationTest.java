@@ -47,6 +47,13 @@ import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
 import io.servicecomb.poc.demo.seckill.web.SecKillAdminRestController;
 
+/**
+ * 守护「创建活动」这条链路：浏览器最终会打到 Admin 的 {@code /admin/promotions/}。
+ * <p>
+ * {@code @RunWith(SpringRunner.class)} 让 JUnit 4 把本类交给 Spring 启动；
+ * {@code @SpringBootTest} 只装配 Admin 应用，{@code @WebAppConfiguration} 表示按 Web 环境测控制器。
+ * 活动经 {@link SpringPromotionRepository} 落库。本文件没有出现 Redis、Kafka、Elasticsearch 或 H2。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = AdminServiceApplication.class)
 @WebAppConfiguration
@@ -72,6 +79,11 @@ public class SecKillAdminApplicationTest {
     repository.deleteAll();
   }
 
+  /**
+   * 前置：{@code setup} 已清空活动仓库。
+   * 动作：POST 券数量 5、折扣 0.7、开始时间在未来的活动。
+   * 期望：HTTP 200，响应体能解析成活动编号，仓库里有一条记录。
+   */
   @Test
   public void createsPromotionSuccessfully() throws Exception {
     MvcResult result = mockMvc.perform(post("/admin/promotions/").contentType(APPLICATION_JSON)
@@ -83,6 +95,11 @@ public class SecKillAdminApplicationTest {
     assertThat(repository.count(), is(1L));
   }
 
+  /**
+   * 前置：仓库是空的。
+   * 动作：券数量写成 0 再创建。
+   * 期望：HTTP 400，正文里能看到 Invalid promotion。
+   */
   @Test
   public void failsWhenNumberOfCouponsIsInvalid() throws Exception {
     mockMvc.perform(post("/admin/promotions/").contentType(APPLICATION_JSON)
@@ -91,6 +108,11 @@ public class SecKillAdminApplicationTest {
         .andExpect(content().string(containsString("Invalid promotion {numberOfCoupons=")));
   }
 
+  /**
+   * 前置：仓库是空的。
+   * 动作：折扣写成负数再创建。
+   * 期望：HTTP 400，正文里能看到 Invalid promotion。
+   */
   @Test
   public void failsWhenDiscountIsInvalid() throws Exception {
     mockMvc.perform(post("/admin/promotions/").contentType(APPLICATION_JSON)
@@ -99,6 +121,11 @@ public class SecKillAdminApplicationTest {
         .andExpect(content().string(containsString("Invalid promotion {numberOfCoupons=")));
   }
 
+  /**
+   * 前置：先创建一条尚未改过的活动。
+   * 动作：PUT 新的券数量、折扣、开始时间和结束时间。
+   * 期望：HTTP 200，仓库里读回的四个字段与提交一致。
+   */
   @Test
   public void updatePromotionSuccessfully() throws Exception {
     MvcResult result = mockMvc.perform(post("/admin/promotions/").contentType(APPLICATION_JSON)
@@ -122,6 +149,11 @@ public class SecKillAdminApplicationTest {
     assertThat(promotion.getFinishTime().getTime(), is(finishTime.getTime()));
   }
 
+  /**
+   * 前置：没有先创建活动。
+   * 动作：对一个随机活动编号发 PUT。
+   * 期望：HTTP 400，正文含 PromotionEntity not exists。
+   */
   @Test
   public void failsUpdatePromotionWhenPromotionDoesNotExist() throws Exception {
     mockMvc.perform(put("/admin/promotions/" + UUID.randomUUID().toString() + "/").contentType(APPLICATION_JSON)
@@ -130,6 +162,11 @@ public class SecKillAdminApplicationTest {
         .andExpect(content().string(containsString("PromotionEntity not exists")));
   }
 
+  /**
+   * 前置：已经有一条合法活动。
+   * 动作：PUT 时把券数量写成 0、折扣写成负数。
+   * 期望：HTTP 400，正文含 Invalid promotion。
+   */
   @Test
   public void failsUpdatePromotionWhenDtoIsInvalid() throws Exception {
     MvcResult result = mockMvc.perform(post("/admin/promotions/").contentType(APPLICATION_JSON)

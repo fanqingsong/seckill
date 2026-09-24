@@ -16,13 +16,30 @@
 
 package io.servicecomb.poc.demo.seckill;
 
+/**
+ * 一次抢券在 Redis 热路径上的三种结果。
+ * <p>
+ * {@link SecKillCommandService#addCouponTo} 返回本枚举，控制器再映射成 HTTP 状态。
+ * {@link #Success} 只表示 Redis Lua 已经扣减，并把令牌放进抢券流。此时 PostgreSQL 里还没有
+ * 这张券的事件行，Kafka 也还没发。{@link #Failed} 表示活动未开始、已结束或库存不足。
+ * {@link #Duplicate} 表示同一活动里该顾客已经抢过。
+ * <p>
+ * {@code value} 是写在枚举常量上的编号。当前控制器按常量比较，不读取这个数字。
+ */
 public enum SecKillGrabResult {
+  /** Redis 已扣减。查询库尚未更新。 */
   Success(0),
+  /** 未开始、已结束或卖完。不写 PostgreSQL。 */
   Failed(1),
+  /** 重复顾客。Lua 没有再次扣库存。 */
   Duplicate(2);
 
+  /** 结果编号，仅保存在枚举实例上，没有对外的读取方法。 */
   private int value = 0;
 
+  /**
+   * @param value 上面对应常量括号里的编号
+   */
   SecKillGrabResult(int value) {
     this.value = value;
   }

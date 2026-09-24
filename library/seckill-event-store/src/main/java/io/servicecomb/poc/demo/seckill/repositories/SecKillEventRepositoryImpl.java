@@ -19,14 +19,36 @@ package io.servicecomb.poc.demo.seckill.repositories;
 import io.servicecomb.poc.demo.seckill.entities.EventEntity;
 import org.springframework.data.repository.CrudRepository;
 
+/**
+ * {@link SecKillEventRepository} 的一个手动实现：只把 {@code save} 转给 Spring Data 的仓库。
+ * <p>
+ * 运行中的 Command、Persist、Event、Admin 注入的是
+ * {@link io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRepository}，
+ * 不经过本类。本类没有 Spring 的组件注解，容器不会自动创建它。
+ * {@code save} 把一行追加进 PostgreSQL 的事件表，不写 Redis、不发 Kafka。
+ * <p>
+ * {@code CrudRepository<EventEntity, Integer>} 是 Spring Data 的通用仓库。尖括号里第一个是实体，
+ * 第二个是主键类型，这里对应 {@code EventEntity} 的 {@code int} 主键。
+ */
 public class SecKillEventRepositoryImpl implements SecKillEventRepository {
 
+  /** 真正执行插入的 Spring Data 仓库，由构造器传入。 */
   private final CrudRepository<EventEntity, Integer> repository;
 
+  /**
+   * 保存要委托的仓库。不访问数据库。
+   *
+   * @param repository 能保存 {@link EventEntity} 的 CrudRepository
+   */
   public SecKillEventRepositoryImpl(CrudRepository<EventEntity, Integer> repository) {
     this.repository = repository;
   }
 
+  /**
+   * 把一行事件交给底层仓库保存。是否新插入取决于实体主键；本方法不更新 Redis，也不写 outbox。
+   *
+   * @param entity 要保存的事件行
+   */
   @Override
   public void save(EventEntity entity) {
     repository.save(entity);

@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: frontend-nginx
+    namespace: seckill
+    files:
+      - default.conf=apps/nginx-k8s.conf
+resources:
+  - namespace.yaml
+  - infra/postgres.yaml
+  - infra/redis.yaml
+  - infra/kafka.yaml
+  - infra/elasticsearch.yaml
+  - apps/admin.yaml
+  - apps/command.yaml
+  - apps/persist.yaml
+  - apps/query.yaml
+  - apps/event.yaml
+  - apps/frontend.yaml
+  - istio/gateway.yaml
+  - istio/virtualservice.yaml
+  - istio/destinationrules.yaml
+  - istio/destinationrules-infra.yaml
+  - istio/ratelimit.yaml
+  - istio/envoyfilter-ratelimit.yaml
+  - istio/envoyfilter-fallback.yaml

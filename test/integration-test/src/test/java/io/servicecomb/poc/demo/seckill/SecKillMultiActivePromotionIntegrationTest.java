@@ -42,6 +42,12 @@ import io.servicecomb.poc.demo.seckill.repositories.spring.SpringCouponRepositor
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRepository;
 
+/**
+ * 守护同时有两场进行中的活动：同一顾客可以各抢一张，查询结果里两场都在。
+ * <p>
+ * 请求打在 {@link IntegrationTestApplication} 提供的 MockMvc 上。
+ * 本文件没有出现 Redis、Kafka、Elasticsearch 或 H2 的类型或配置。
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = IntegrationTestApplication.class)
 @WebAppConfiguration
@@ -62,6 +68,11 @@ public class SecKillMultiActivePromotionIntegrationTest {
   @Autowired
   private SpringCouponRepository couponRepository;
 
+  /**
+   * 前置：没有先清空仓库，两场活动的开始时间都是现在。
+   * 动作：创建 5 张和 10 张券的两场活动，等待 1 秒后顾客 zyy 各抢一次，再查该顾客的券。
+   * 期望：两次抢券都是 HTTP 200 且正文为 Request accepted；查询正文同时含两个活动编号和 zyy。
+   */
   @Test
   public void createAndPublishMultiPromotionAndGrabSuccessfully() throws Exception {
     MvcResult result = mockMvc.perform(post("/admin/promotions/").contentType(APPLICATION_JSON)

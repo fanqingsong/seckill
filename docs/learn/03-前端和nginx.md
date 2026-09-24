@@ -38,6 +38,8 @@ Gateway 用它们识别浏览器的 IP。如果没有这两个头，Gateway 看�
 
 `resolver 127.0.0.11` 是 Docker 内置 DNS。`proxy_pass` 使用变量，是为了容器重建、IP 变化后重新解析 `gateway-service`，避免一直连旧地址。
 
+Kubernetes + Istio 路径里，入口由 Istio Gateway 按路径转发到 Admin / Command / Query，前端 nginx 只提供静态页（`nginx-k8s.conf`）。见 [`k8s/README.md`](../../k8s/README.md)。
+
 ## 核对
 
 1. 为什么前端代码里写 `/command/coupons/`，而 Command 进程实际监听的是 8082？

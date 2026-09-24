@@ -1,0 +1,85 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ingress-unavailable-body
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: MERGE
+        value:
+          name: envoy.filters.network.http_connection_manager
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            local_reply_config:
+              mappers:
+                - filter:
+                    and_filter:
+                      filters:
+                        - status_code_filter:
+                            comparison:
+                              op: EQ
+                              value:
+                                default_value: 503
+                                runtime_key: unused
+                        - header_filter:
+                            header:
+                              name: ":path"
+                              string_match:
+                                prefix: /command/
+                  body:
+                    inline_string: command unavailable
+                  headers_to_add:
+                    - header:
+                        key: content-type
+                        value: text/plain
+                - filter:
+                    and_filter:
+                      filters:
+                        - status_code_filter:
+                            comparison:
+                              op: EQ
+                              value:
+                                default_value: 503
+                                runtime_key: unused
+                        - header_filter:
+                            header:
+                              name: ":path"
+                              string_match:
+                                prefix: /query/
+                  body:
+                    inline_string: query unavailable
+                  headers_to_add:
+                    - header:
+                        key: content-type
+                        value: text/plain
+                - filter:
+                    and_filter:
+                      filters:
+                        - status_code_filter:
+                            comparison:
+                              op: EQ
+                              value:
+                                default_value: 503
+                                runtime_key: unused
+                        - header_filter:
+                            header:
+                              name: ":path"
+                              string_match:
+                                prefix: /admin/promotions
+                  body:
+                    inline_string: admin unavailable
+                  headers_to_add:
+                    - header:
+                        key: content-type
+                        value: text/plain
