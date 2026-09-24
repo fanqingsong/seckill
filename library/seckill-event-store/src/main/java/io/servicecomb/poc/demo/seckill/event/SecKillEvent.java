@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SecKillEvent.java                                    │
+ * │ 链路：三种事件的父类                                 │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   子类由 Command 或 Persist 创建
+ *      │
+ *      ▼
+ *   【本文件】记下 promotionId 与 type
+ *      │
+ *      ▼
+ *   SecKillEventFormat 转成事件行
+ *
+ * 一句话：父类只表示内存里的事件，不是数据库行。
+ */
+
 package io.servicecomb.poc.demo.seckill.event;
 
 import io.servicecomb.poc.demo.seckill.Format;

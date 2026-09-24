@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ Format.java                                          │
+ * │ 链路：JSON 抽象                                      │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   事件转换与 outbox 序列化
+ *      │
+ *      ▼
+ *   【本文件】serialize / deserialize 约定
+ *      │
+ *      ▼
+ *   JacksonGeneralFormat 负责实现
+ *
+ * 一句话：接口只约定互转，本身不访问数据库。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 /**

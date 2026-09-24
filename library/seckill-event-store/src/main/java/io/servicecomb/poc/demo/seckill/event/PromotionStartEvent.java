@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ PromotionStartEvent.java                             │
+ * │ 链路：活动开始                                       │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Command 到 publishTime 之后
+ *      │
+ *      ▼
+ *   【本文件】库存已初始化这一事实
+ *      │
+ *      ▼
+ *   PostgreSQL 事件表，并写入 outbox
+ *
+ * 一句话：创建本对象不写库，Command 再和 outbox 一起提交。
+ */
+
 package io.servicecomb.poc.demo.seckill.event;
 
 import io.servicecomb.poc.demo.seckill.Format;

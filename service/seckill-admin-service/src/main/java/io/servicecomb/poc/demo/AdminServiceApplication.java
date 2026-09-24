@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ AdminServiceApplication.java                    │
+ * │ 链路：创建活动 · Admin 服务入口                 │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 浏览器 nginx /admin → Gateway 8085
+ * │
+ * ▼
+ * 【本文件】启动 Admin 进程（端口 8081）
+ * │
+ * ▼
+ * 控制器只写 PostgreSQL 活动行（Redis 库存未初始化）
+ *
+ * 一句话：入口只拉起进程，到 publishTime 才由 Command 初始化 Redis。
+ */
+
 package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;

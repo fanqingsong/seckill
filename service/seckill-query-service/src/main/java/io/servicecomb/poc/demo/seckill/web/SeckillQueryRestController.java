@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SeckillQueryRestController.java                 │
+ * │ 链路：查询 · Query HTTP                         │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Gateway /query → 本服务 8083
+ * │
+ * ▼
+ * 【本文件】查询页入口
+ * │
+ * ├── GET /promotions、/coupons/{id} ──▶ Redis
+ * └── GET /coupons/search ──▶ Elasticsearch
+ *
+ * 一句话：抢券 HTTP 成功只表示库存已扣，列表要等投影后才有券。
+ */
+
 package io.servicecomb.poc.demo.seckill.web;
 
 import java.util.Collection;

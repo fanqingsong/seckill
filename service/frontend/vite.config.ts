@@ -1,7 +1,19 @@
-/**
- * 本地 `vite` 开发服务器的配置，监听 5173。
- * proxy 把浏览器里的 /admin、/command、/query 分别转到本机 8081、8082、8083，
- * 这样开发时不必先经过 nginx。打包后的页面由 nginx 在 8080 提供，浏览器不连接 PostgreSQL。
+/*
+ * ┌─ 文件 ────────────────────────────────────┐
+ * │ vite.config.ts                            │
+ * │ 开发走 Vite :5173，打包后走 nginx :8080   │
+ * └──────────────────────────────────────────┘
+ *
+ * 浏览器
+ * │
+ * ▼
+ * 【本文件】开发时把三条路径代理到本机服务
+ * │
+ * ├── /admin ──▶ 8081
+ * ├── /command ──▶ 8082
+ * └── /query ──▶ 8083
+ *
+ * 一句话：开发时不经过 nginx，页面仍不打开 PostgreSQL。
  */
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'

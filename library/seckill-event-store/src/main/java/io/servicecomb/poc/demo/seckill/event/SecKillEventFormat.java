@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SecKillEventFormat.java                              │
+ * │ 链路：事件三种形态                                   │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Command、Persist 或 Event 服务
+ *      │
+ *      ▼
+ *   【本文件】事件、消息、EventEntity 互转
+ *      │
+ *      ▼
+ *   事件表与 outbox（本类不 save）
+ *
+ * 一句话：只做转换，不插入事件，也不发 Kafka。
+ */
+
 package io.servicecomb.poc.demo.seckill.event;
 
 import io.servicecomb.poc.demo.seckill.Format;

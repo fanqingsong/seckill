@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ GatewayRateLimiterConfiguration.java            │
+ * │ 链路：转发 · 选择限流计数                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 键 seckill.gateway.rate-limiter
+ * │
+ * ▼
+ * 【本文件】二选一装配限流器（Bean 名都叫 redisRateLimiter）
+ * │
+ * ├── 缺省或 memory ──▶ 进程内计数
+ * └── redis ──▶ Redis 计数（键只给网关，不是库存）
+ *
+ * 一句话：默认不连 Redis；只有配置写成 redis 才用 Redis 计数。
+ */
+
 package io.servicecomb.poc.demo.seckill.gateway;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

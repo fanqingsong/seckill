@@ -14,6 +14,22 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────────┐
+ * │ SecKillMultiActivePromotionIntegrationTest.java    │
+ * │ 场景：两场进行中的活动，同一顾客各抢一张            │
+ * └────────────────────────────────────────────────────┘
+ *
+ * 创建 5 张和 10 张券的两场活动，等待后顾客 zyy 各抢一次
+ * │
+ * ▼
+ * 【本文件】再 GET 该顾客的券
+ * │
+ * ├── 两次抢券 ──▶ HTTP 200「Request accepted」
+ * └── 查询 ──▶ 正文同时含两个活动编号和 zyy
+ *
+ * 一句话：两场活动可以同时进行。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.containsString;

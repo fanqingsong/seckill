@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ EventProjector.java                             │
+ * │ 链路：投影 · 写读模型                           │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Kafka seckill.events，或回放直接读事件表
+ * │
+ * ▼
+ * 【本文件】按序号投影开始 / 抢到 / 结束
+ * │
+ * ├── Redis 读模型（进行中活动、券、已投影序号）
+ * └── Elasticsearch（同一条事件也写入搜索索引）
+ *
+ * 一句话：抢券 HTTP 成功时投影可能还没跑到，查询会晚一点才看见券。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;

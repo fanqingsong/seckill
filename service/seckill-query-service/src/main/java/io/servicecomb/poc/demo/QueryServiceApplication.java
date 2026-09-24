@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ QueryServiceApplication.java                    │
+ * │ 链路：查询 · Query 服务入口                     │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 浏览器 nginx /query → Gateway 8085
+ * │
+ * ▼
+ * 【本文件】启动 Query 进程（端口 8083，不连 PostgreSQL）
+ * │
+ * ├── 列表 / 我的券 ──▶ Redis 读模型
+ * └── 搜索 ──▶ Elasticsearch
+ *
+ * 一句话：刚抢成功时读模型可能还没有券，这是投影延迟。
+ */
+
 package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;

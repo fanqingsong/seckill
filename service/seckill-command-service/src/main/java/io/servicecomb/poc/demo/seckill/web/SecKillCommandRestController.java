@@ -14,6 +14,22 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillCommandRestController.java               │
+ * │ 链路：抢券 · Command HTTP                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Gateway POST /command/coupons/
+ * │
+ * ▼
+ * 【本文件】校验请求，按活动编号调用写服务
+ * │
+ * └─ Redis Lua 成功 ─▼ HTTP「已接受」（PostgreSQL 还没有这张券）
+ *
+ * 一句话：这里只接 HTTP，200 只表示 Redis 已扣。
+ */
+
 package io.servicecomb.poc.demo.seckill.web;
 
 import java.util.Map;

@@ -1,3 +1,18 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────┐
+ * │ SecKillPersistentRunnerTest.java         │
+ * │ 场景：抢券结果要能在事件仓库里查到顾客    │
+ * └──────────────────────────────────────────┘
+ *
+ * 构造顾客 0 的抢券事件
+ * │
+ * ▼
+ * 【本文件】交给 TransactionalEventOutboxWriter.persist
+ * │
+ * └──▶ Spring 事件仓库里出现该顾客
+ *
+ * 一句话：只断言事件已写入，不经过 HTTP。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static java.util.concurrent.TimeUnit.SECONDS;

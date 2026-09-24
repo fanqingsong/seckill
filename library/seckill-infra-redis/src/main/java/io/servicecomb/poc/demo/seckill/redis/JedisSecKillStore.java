@@ -1,3 +1,23 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ JedisSecKillStore.java                        │
+ * │ 链路：抢券 · Redis 热路径                     │
+ * └───────────────────────────────────────────────┘
+ *
+ *   Command.tryGrab
+ *      │
+ *      ▼
+ *   【本文件】一段 Lua，在 Redis 里一次做完
+ *      │
+ *      ├── seckill:stock:{id}     剩余张数
+ *      ├── seckill:claimed:{id}   已抢顾客
+ *      └── seckill:grabs          Stream，交给 Persist
+ *
+ *   查询用的活动列表、券，写在另一组键上，不走这段 Lua。
+ *
+ * 一句话：HTTP 线程只扣 Redis，不写 PostgreSQL，也不发 Kafka。
+ */
+
 package io.servicecomb.poc.demo.seckill.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;

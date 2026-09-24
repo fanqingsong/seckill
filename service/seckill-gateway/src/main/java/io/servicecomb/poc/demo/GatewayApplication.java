@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ GatewayApplication.java                         │
+ * │ 链路：转发 · Gateway 入口                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 浏览器 nginx 8080 把 /admin /command /query 转来
+ * │
+ * ▼
+ * 【本文件】启动 Gateway（端口 8085，不写业务数据）
+ * │
+ * ├── 默认 ──▶ 内存限流
+ * └── seckill.gateway.rate-limiter=redis ──▶ Redis 计数
+ *
+ * 一句话：只转发、限流、熔断；回放接口不从这条代理进来。
+ */
+
 package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;

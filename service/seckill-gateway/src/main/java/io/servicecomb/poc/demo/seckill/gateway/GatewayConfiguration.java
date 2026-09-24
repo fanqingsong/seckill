@@ -14,6 +14,24 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ GatewayConfiguration.java                       │
+ * │ 链路：转发 · 路由与熔断                         │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 请求按路径进入（限流器由配置选择，默认内存）
+ * │
+ * ▼
+ * 【本文件】先限流，再熔断，然后转发
+ * │
+ * ├── /admin/** ──▶ 8081
+ * ├── /command/** ──▶ 8082
+ * └── /query/** ──▶ 8083（失败则本进程 503）
+ *
+ * 一句话：Gateway 不写活动、库存或券，只决定请求往哪走。
+ */
+
 package io.servicecomb.poc.demo.seckill.gateway;
 
 import java.net.InetSocketAddress;

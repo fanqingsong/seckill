@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ───────────────────────────────────┐
+ * │ GrabPersistWorkerTest.java              │
+ * │ 场景：扣库存之后，后台写成抢券或结束事件 │
+ * └─────────────────────────────────────────┘
+ *
+ * tryGrab 成功，或同一顾客再抢一次
+ * │
+ * ▼
+ * 【本文件】Persist 从 SecKillStore 取走结果
+ * │
+ * ├── 新顾客 ──▶ 事件表有 CouponGrabbedEvent
+ * ├── 重复顾客 ──▶ 仍只有 1 条，待处理条数回落
+ * └── 最后一张 ──▶ PromotionFinishEvent 恰好 1 条
+ *
+ * 一句话：断言事件仓库，不经过浏览器。
+ */
 package io.servicecomb.poc.demo.seckill.persist;
 
 import static java.util.concurrent.TimeUnit.SECONDS;

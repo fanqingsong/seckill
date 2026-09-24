@@ -14,6 +14,22 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ─────────────────────────────────┐
+ * │ GatewayRateLimiterTest.java           │
+ * │ 场景：抢券突发容量用完后拒绝下一笔      │
+ * └───────────────────────────────────────┘
+ *
+ * 连续两次 POST /command/coupons/
+ * │
+ * ▼
+ * 【本文件】限流计数在内存，下游是 MockWebServer
+ * │
+ * ├── 第一次 ──▶ HTTP 200「accepted」
+ * └── 第二次 ──▶ HTTP 429，响应带剩余配额头
+ *
+ * 一句话：突发容量为 1 时，第二笔不再转到下游。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import java.io.IOException;

@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillEventConfig.java                         │
+ * │ 链路：投影 · 装配消费者                         │
+ * └─────────────────────────────────────────────────┘
+ *
+ * seckill.infra.mode（默认 memory）
+ * │
+ * ▼
+ * 【本文件】创建投影器并接上事件来源
+ * │
+ * ├── prod ──▶ Kafka 消费者线程（seckill.events）
+ * └── memory ──▶ 订阅内存总线
+ *
+ * 一句话：回放不走这条消费线程，它直接读 PostgreSQL 事件表。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.es.SecKillEsConfig;

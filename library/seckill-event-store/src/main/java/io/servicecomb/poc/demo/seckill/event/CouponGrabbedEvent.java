@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ CouponGrabbedEvent.java                              │
+ * │ 链路：抢券 · 落库事件                                │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Persist 取出抢券令牌之后
+ *      │
+ *      ▼
+ *   【本文件】某顾客抢到的一张券
+ *      │
+ *      ▼
+ *   PostgreSQL 事件表，并写入 outbox
+ *
+ * 一句话：抢券 HTTP 不插入本事件，由 Persist 追加。
+ */
+
 package io.servicecomb.poc.demo.seckill.event;
 
 import io.servicecomb.poc.demo.seckill.Format;

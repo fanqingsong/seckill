@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ ReplayController.java                           │
+ * │ 链路：投影 · 回放 HTTP                          │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 直接访问 Event 服务 8084（不经浏览器 nginx）
+ * │
+ * ▼
+ * 【本文件】POST /admin/replay
+ * │
+ * ▼
+ * PostgreSQL 事件表 → 再写入 Redis 读模型与 Elasticsearch
+ *
+ * 一句话：nginx 把 /admin 转到 Admin 服务，到不了这个回放接口。
+ */
+
 package io.servicecomb.poc.demo.seckill.web;
 
 import io.servicecomb.poc.demo.seckill.EventProjector;

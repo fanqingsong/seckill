@@ -14,6 +14,22 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillGrabResult.java                          │
+ * │ 链路：抢券 · Command 结果                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Redis Lua 扣减
+ * │
+ * ▼
+ * 【本文件】三种结果：成功 / 失败 / 重复
+ * │
+ * └─ Success ─▼ HTTP「已接受」（PostgreSQL 还没有这张券）
+ *
+ * 一句话：成功只描述 Redis 已扣，不是库里已有事件。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 /**

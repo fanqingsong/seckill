@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────┐
+ * │ SecKillCommandApplicationTest.java         │
+ * │ 场景：顾客提交抢券，或活动编号无效          │
+ * └────────────────────────────────────────────┘
+ *
+ * MockMvc POST /command/coupons/
+ * │
+ * ▼
+ * 【本文件】setUp 用 SecKillStore 放好 10 张库存
+ * │
+ * ├── 活动有效 ──▶ HTTP 200「Request accepted」
+ * └── 未知活动 ──▶ HTTP 400，正文含 Invalid promotion
+ *
+ * 一句话：成功只表示请求被接受。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON;

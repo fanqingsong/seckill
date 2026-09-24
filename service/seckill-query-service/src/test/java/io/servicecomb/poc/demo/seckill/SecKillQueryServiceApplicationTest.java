@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────┐
+ * │ SecKillQueryServiceApplicationTest.java    │
+ * │ 场景：查询进行中的活动，以及某位顾客的券    │
+ * └────────────────────────────────────────────┘
+ *
+ * MockMvc GET /query/promotions 与 /query/coupons/
+ * │
+ * ▼
+ * 【本文件】先把活动和券写入 SecKillStore
+ * │
+ * ├── 没有券 ──▶ 正文 []
+ * └── 有券 ──▶ 只看见该顾客的活动编号
+ *
+ * 一句话：读接口对着读模型断言，不发搜索请求。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.allOf;

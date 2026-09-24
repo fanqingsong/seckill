@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillEventPublisher.java                    │
+ * │ 链路：投递 · 发布契约                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * OutboxRelay
+ *      │
+ *      ▼
+ *  【本文件】
+ *      ├─ seckill.events
+ *      └─ seckill.events.dlt
+ *
+ * 一句话：把已提交的 outbox 发到 topic seckill.events。
+ */
+
 package io.servicecomb.poc.demo.seckill.kafka;
 
 /**

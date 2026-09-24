@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillAdminRestController.java                 │
+ * │ 链路：创建活动 · Admin HTTP                     │
+ * └─────────────────────────────────────────────────┘
+ *
+ * POST/PUT /admin/promotions
+ * │
+ * ▼
+ * 【本文件】校验后写入活动表
+ * │
+ * ├── 合法 ──▶ PostgreSQL 活动行（Redis 仍无库存）
+ * └── 已开始或非法 ──▶ HTTP 400，不改 Redis
+ *
+ * 一句话：创建和修改只落 PostgreSQL，库存要等 Command 到 publishTime。
+ */
+
 package io.servicecomb.poc.demo.seckill.web;
 
 import static org.springframework.http.HttpStatus.OK;

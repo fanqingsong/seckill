@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ EventMessageDto.java                                 │
+ * │ 链路：outbox 到 Kafka                                │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Command / Persist 组装消息
+ *      │
+ *      ▼
+ *   【本文件】eventId、type、seq、content
+ *      │
+ *      ▼
+ *   PostgreSQL outbox，relay 再发 Kafka
+ *
+ * 一句话：本类只放待发字段，插入 outbox 的是调用方。
+ */
+
 package io.servicecomb.poc.demo.seckill.dto;
 
 /**

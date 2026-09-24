@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ CouponInfo.java                                 │
+ * │ 链路：查询 · 响应 JSON                          │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Redis 或 Elasticsearch 里的券
+ * │
+ * ▼
+ * 【本文件】转成浏览器看到的字段
+ * │
+ * ▼
+ * HTTP JSON（本类自己不访问存储）
+ *
+ * 一句话：读模型还没有这张券时，列表里就不会有对应的本对象。
+ */
+
 package io.servicecomb.poc.demo.seckill.dto;
 
 import java.io.Serializable;

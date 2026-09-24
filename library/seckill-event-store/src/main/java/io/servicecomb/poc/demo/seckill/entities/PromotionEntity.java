@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ PromotionEntity.java                                 │
+ * │ 链路：创建活动 · 活动表                              │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Admin 创建或修改活动
+ *      │
+ *      ▼
+ *   【本文件】券数、折扣、投放与结束时间
+ *      │
+ *      ▼
+ *   PostgreSQL 活动表（尚无库存）
+ *
+ * 一句话：这是可修改的活动定义，不是追加进去的事件。
+ */
+
 package io.servicecomb.poc.demo.seckill.entities;
 
 import java.util.Date;

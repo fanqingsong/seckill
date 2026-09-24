@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ GrabPersistWorker.java                          │
+ * │ 链路：抢券 · Persist 消费                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Redis Lua 已扣减，令牌在抢券流
+ * │
+ * ▼
+ * 【本文件】取出令牌
+ * │
+ * ▼
+ * 同一事务写入 CouponGrabbedEvent 和 outbox
+ *
+ * 一句话：HTTP 早已返回成功，这一步才把券写进 PostgreSQL。
+ */
+
 package io.servicecomb.poc.demo.seckill.persist;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;

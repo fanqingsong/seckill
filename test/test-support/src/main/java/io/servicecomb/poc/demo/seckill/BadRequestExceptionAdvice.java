@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ BadRequestExceptionAdvice.java                  │
+ * │ 链路：测试 · HTTP 400                           │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 解析器发现状态码已经是 400
+ * │
+ * ▼
+ * 【本文件】把异常消息放进响应体
+ * │
+ * ▼
+ * HTTP 400（测试断言用，不写库）
+ *
+ * 一句话：校验失败在测试里固定变成 400 和异常消息。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import org.springframework.http.HttpEntity;

@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ InMemorySearchIndex.java                      │
+ * │ 链路：搜索 · 内存索引                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * Event 投影 / Query
+ *         │
+ *         ▼
+ *     【本文件】
+ *         │
+ *         ▼
+ *   查询页 search
+ *
+ * 一句话：mode 不是 prod 时，用 Map 代替 Elasticsearch。
+ */
+
 package io.servicecomb.poc.demo.seckill.es;
 
 import io.servicecomb.poc.demo.seckill.entities.CouponEntity;

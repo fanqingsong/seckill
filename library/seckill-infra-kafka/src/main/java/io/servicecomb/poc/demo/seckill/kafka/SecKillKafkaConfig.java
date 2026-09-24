@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillKafkaConfig.java                       │
+ * │ 链路：启动 · 选择发布器                       │
+ * └───────────────────────────────────────────────┘
+ *
+ * Spring 创建 @Bean
+ *        │
+ *        ▼
+ *    【本文件】
+ *  mode 是否等于 prod
+ *   ├─ 是 ─ Kafka
+ *   └─ 否 ─ 内存总线
+ *
+ * 一句话：profile 名不选客户端；mode=prod 才连 Kafka。
+ */
+
 package io.servicecomb.poc.demo.seckill.kafka;
 
 import org.springframework.beans.factory.annotation.Value;

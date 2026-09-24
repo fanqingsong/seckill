@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillStore.java                             │
+ * │ 链路：抢券与查询 · 契约                       │
+ * └───────────────────────────────────────────────┘
+ *
+ * Command / Event / Query
+ *          │
+ *          ▼
+ *      【本文件】
+ *          ├─ 热路径 Lua 库存
+ *          ├─ grab stream
+ *          └─ 查询读模型
+ *
+ * 一句话：热路径、抢券队列和查询读模型都走这张契约。
+ */
+
 package io.servicecomb.poc.demo.seckill.redis;
 
 import io.servicecomb.poc.demo.seckill.entities.CouponEntity;

@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillCommandService.java                      │
+ * │ 链路：抢券 · Command 服务                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Gateway POST /command/coupons/
+ * │
+ * ▼
+ * 【本文件】判断是否结束，调用 Redis Lua
+ * │
+ * ├─ 成功 ─▼ HTTP「已接受」（PostgreSQL 还没有这张券）
+ * └─ 卖完或到点 ─▼ 结束事件交给 outbox（提交后才发 Kafka）
+ *
+ * 一句话：热路径只扣 Redis，不在这里写库。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;

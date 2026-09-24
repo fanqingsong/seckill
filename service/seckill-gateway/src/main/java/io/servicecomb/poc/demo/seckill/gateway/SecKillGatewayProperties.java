@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillGatewayProperties.java                   │
+ * │ 链路：转发 · 配置绑定                           │
+ * └─────────────────────────────────────────────────┘
+ *
+ * application.properties 前缀 seckill.gateway
+ * │
+ * ▼
+ * 【本文件】下游地址、限流位置、三条路由速率
+ * │
+ * ├── rate-limiter 默认 memory
+ * └── 写成 redis 才连接 redis-host 与 redis-port
+ *
+ * 一句话：这些字段只决定怎么转发和限流，不会写成业务数据。
+ */
+
 package io.servicecomb.poc.demo.seckill.gateway;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;

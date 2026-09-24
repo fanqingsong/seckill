@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillSyncRestController.java                  │
+ * │ 链路：查询 · 增量同步                           │
+ * └─────────────────────────────────────────────────┘
+ *
+ * GET /sync/{latestId}
+ * │
+ * ▼
+ * 【本文件】按已见过的最大券号拉取之后的券
+ * │
+ * ▼
+ * Redis 读模型（不读 Elasticsearch，也不写库）
+ *
+ * 一句话：刚抢成功的券要等 Event 投影完成后才会出现在同步结果里。
+ */
+
 package io.servicecomb.poc.demo.seckill.web;
 
 import java.util.Collection;

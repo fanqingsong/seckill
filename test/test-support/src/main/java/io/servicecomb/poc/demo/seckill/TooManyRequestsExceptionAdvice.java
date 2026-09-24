@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ TooManyRequestsExceptionAdvice.java             │
+ * │ 链路：测试 · HTTP 429                           │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 解析器发现状态码已经是 429
+ * │
+ * ▼
+ * 【本文件】把异常消息放进响应体
+ * │
+ * ▼
+ * HTTP 429（不参与真实 Gateway 限流）
+ *
+ * 一句话：限流异常在测试里固定变成 429，不写业务数据。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import org.springframework.http.HttpEntity;

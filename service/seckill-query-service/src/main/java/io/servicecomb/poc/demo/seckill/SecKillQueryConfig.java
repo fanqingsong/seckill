@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillQueryConfig.java                         │
+ * │ 链路：查询 · 装配读模型                         │
+ * └─────────────────────────────────────────────────┘
+ *
+ * seckill.infra.mode（默认 memory）
+ * │
+ * ▼
+ * 【本文件】装入 Redis 读模型与 ES 索引，创建查询服务
+ * │
+ * ├── memory ──▶ 内存实现（测试）
+ * └── prod ──▶ 真实 Redis 与 Elasticsearch
+ *
+ * 一句话：本配置不连 PostgreSQL，活动表和事件表不在这里读。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.es.SecKillEsConfig;

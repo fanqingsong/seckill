@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillEventServiceApplicationTest.java      │
+ * │ 场景：开始后活动可查，结束后消失，抢券后能读券 │
+ * └──────────────────────────────────────────────┘
+ *
+ * 直接调用 EventProjector.project，不经过 HTTP
+ * │
+ * ▼
+ * 【本文件】把开始、结束、抢券事件投影进 SecKillStore
+ * │
+ * ├── 两条开始 ──▶ 进行中列表有 2 个活动
+ * ├── 一条结束 ──▶ 该活动从列表消失
+ * └── 抢券 ──▶ 按顾客能读到 1 张券
+ *
+ * 一句话：断言的是读模型，不走浏览器。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.Matchers.contains;

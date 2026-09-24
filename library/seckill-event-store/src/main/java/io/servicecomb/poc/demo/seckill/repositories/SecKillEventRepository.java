@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SecKillEventRepository.java                          │
+ * │ 链路：保存事件行                                     │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   调用方准备好 EventEntity
+ *      │
+ *      ▼
+ *   【本文件】只声明 save 这一件事
+ *      │
+ *      ▼
+ *   PostgreSQL 表 sec_kill_event
+ *
+ * 一句话：窄接口只保存追加事件，不写 Redis，也不发 Kafka。
+ */
+
 package io.servicecomb.poc.demo.seckill.repositories;
 
 import io.servicecomb.poc.demo.seckill.entities.EventEntity;

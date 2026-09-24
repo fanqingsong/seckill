@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillRecoveryApplicationTest.java            │
+ * │ 场景：按已有事件恢复后，看重复、可抢、卖完      │
+ * └────────────────────────────────────────────────┘
+ *
+ * 先写入开始事件和若干抢券事件，等待恢复
+ * │
+ * ▼
+ * 【本文件】MockMvc POST /command/coupons/
+ * │
+ * ├── 已抢过的偶数顾客 ──▶ HTTP 429，含 duplicate order
+ * ├── 还没抢的奇数顾客 ──▶ HTTP 200
+ * └── 顾客 10 / 未知活动 ──▶ 卖完 429，或 400
+ *
+ * 一句话：库存从事件仓库恢复后再断言抢券 HTTP。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.containsString;

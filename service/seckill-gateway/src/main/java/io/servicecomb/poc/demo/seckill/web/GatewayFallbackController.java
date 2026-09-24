@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ GatewayFallbackController.java                  │
+ * │ 链路：转发 · 熔断降级                           │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 下游 5xx 或熔断打开（forward:/fallback/*）
+ * │
+ * ▼
+ * 【本文件】在 Gateway 进程内返回 HTTP 503
+ * │
+ * ▼
+ * 纯文本；不再转发，也不写库存或券
+ *
+ * 一句话：抢券请求停在降级响应上时，Redis 库存不会被这次调用扣减。
+ */
+
 package io.servicecomb.poc.demo.seckill.web;
 
 import org.springframework.http.HttpStatus;

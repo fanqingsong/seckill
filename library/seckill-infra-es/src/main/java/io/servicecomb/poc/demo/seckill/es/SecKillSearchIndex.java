@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillSearchIndex.java                       │
+ * │ 链路：搜索 · 索引契约                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * Event 写入 / Query
+ *         │
+ *         ▼
+ *     【本文件】
+ *         │
+ *         ▼
+ *  Elasticsearch 搜索
+ *
+ * 一句话：搜索走这里；列表和我的券仍读 Redis 读模型。
+ */
+
 package io.servicecomb.poc.demo.seckill.es;
 
 import io.servicecomb.poc.demo.seckill.entities.CouponEntity;

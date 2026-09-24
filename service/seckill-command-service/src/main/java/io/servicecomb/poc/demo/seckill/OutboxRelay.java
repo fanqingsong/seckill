@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ OutboxRelay.java                                │
+ * │ 链路：抢券 · Command 发消息                     │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 事件行和 outbox 已在同一事务提交
+ * │
+ * ▼
+ * 【本文件】读未发布的 outbox，发到 Kafka seckill.events
+ * │
+ * └─ 成功后再把该行标成已发布
+ *
+ * 一句话：先提交数据库，再发 Kafka；HTTP 成功时这里可能还没跑到。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.entities.OutboxEntity;

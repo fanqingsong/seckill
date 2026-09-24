@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ EventServiceApplication.java                    │
+ * │ 链路：投影 · Event 服务入口                     │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Kafka topic seckill.events（测试为内存总线）
+ * │
+ * ▼
+ * 【本文件】启动 Event 进程（端口 8084）
+ * │
+ * ├── 消费消息 ──▶ Redis 读模型 + Elasticsearch
+ * └── POST /admin/replay ──▶ 直接读事件表（nginx 不代理）
+ *
+ * 一句话：浏览器 nginx 不把回放转到这里，查询页要等投影完成后才有券。
+ */
+
 package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;

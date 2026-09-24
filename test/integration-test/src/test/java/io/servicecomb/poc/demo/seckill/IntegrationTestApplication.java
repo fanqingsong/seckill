@@ -14,6 +14,21 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────┐
+ * │ IntegrationTestApplication.java         │
+ * │ 场景：集成测试共用的 Spring Boot 启动类  │
+ * └─────────────────────────────────────────┘
+ *
+ * @SpringBootTest(classes = 本类)
+ * │
+ * ▼
+ * 【本文件】从本包扫描 Bean，并打开类代理事务
+ * │
+ * └──▶ 创建、抢券、查询打在同一个应用上
+ *
+ * 一句话：测试不调用 main，只把它当作配置源。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import org.springframework.boot.SpringApplication;

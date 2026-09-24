@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ─────────────────────────────────────────┐
+ * │ SecKillQueryServiceApplicationSyncTest.java   │
+ * │ 场景：按券编号增量拉取比给定值更新的券          │
+ * └───────────────────────────────────────────────┘
+ *
+ * 三张券先写入 SecKillStore
+ * │
+ * ▼
+ * 【本文件】MockMvc 依次 GET /sync/{id}
+ * │
+ * ├── 从 0 拉 ──▶ 三场活动都在
+ * └── 用最后一张编号再拉 ──▶ 正文 []
+ *
+ * 一句话：这是同步接口，页面上的「我的券」不走这里。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.allOf;

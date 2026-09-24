@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillEsConfig.java                          │
+ * │ 链路：启动 · 选择索引                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * Spring 创建 @Bean
+ *        │
+ *        ▼
+ *    【本文件】
+ *  mode 是否等于 prod
+ *   ├─ 是 ─ HTTP ES
+ *   └─ 否 ─ 内存索引
+ *
+ * 一句话：profile 名不选客户端；mode=prod 才连 ES。
+ */
+
 package io.servicecomb.poc.demo.seckill.es;
 
 import org.springframework.beans.factory.annotation.Value;

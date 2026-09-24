@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ TransactionalEventOutboxWriter.java             │
+ * │ 链路：抢券 · Command 落库                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * publishTime 或活动结束
+ * │
+ * ▼
+ * 【本文件】同一事务写入事件行和 outbox
+ * │
+ * ▼
+ * 提交之后由 relay 发 Kafka（本文件不发）
+ *
+ * 一句话：开始和结束走这里；抢券成功的券行由 Persist 另写。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;

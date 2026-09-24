@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SecKillEventRepositoryImpl.java                      │
+ * │ 链路：手动转交 save                                  │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   手动 new 本类时传入仓库
+ *      │
+ *      ▼
+ *   【本文件】把 save 转给 CrudRepository
+ *      │
+ *      ▼
+ *   PostgreSQL 表 sec_kill_event
+ *
+ * 一句话：运行中的服务注入 Spring 仓库，不经过本类。
+ */
+
 package io.servicecomb.poc.demo.seckill.repositories;
 
 import io.servicecomb.poc.demo.seckill.entities.EventEntity;

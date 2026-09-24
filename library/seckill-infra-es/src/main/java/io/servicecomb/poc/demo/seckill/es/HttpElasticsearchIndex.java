@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ HttpElasticsearchIndex.java                   │
+ * │ 链路：搜索 · ES 客户端                        │
+ * └───────────────────────────────────────────────┘
+ *
+ * 投影写入 / Query
+ *        │
+ *        ▼
+ *    【本文件】
+ *        ├─ 券索引
+ *        └─ 活动索引
+ *
+ * 一句话：mode 等于 prod 时，用 HTTP 访问 Elasticsearch。
+ */
+
 package io.servicecomb.poc.demo.seckill.es;
 
 import com.fasterxml.jackson.databind.ObjectMapper;

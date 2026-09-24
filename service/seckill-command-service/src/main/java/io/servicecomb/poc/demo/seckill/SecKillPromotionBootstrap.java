@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillPromotionBootstrap.java                  │
+ * │ 链路：抢券 · Command 引导                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Admin 已把活动写入 PostgreSQL
+ * │
+ * ▼
+ * 【本文件】等到 publishTime
+ * │
+ * ├─ 初始化 Redis 库存
+ * └─ 事件表为空 ─▼ PromotionStartEvent + outbox（提交后才发 Kafka）
+ *
+ * 一句话：时间未到不写 Redis；开始事件不在这里发 Kafka。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;

@@ -14,6 +14,22 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillPromotionBootstrapTest.java           │
+ * │ 场景：没到开始时间不能抢，到点之后可以抢      │
+ * └──────────────────────────────────────────────┘
+ *
+ * 活动写入 SpringPromotionRepository
+ * │
+ * ▼
+ * 【本文件】立刻 POST /command/coupons/，睡过开始时间再抢
+ * │
+ * ├── 未到点 ──▶ HTTP 400，正文含 Invalid promotion
+ * └── 到点后 ──▶ HTTP 200「Request accepted」
+ *
+ * 一句话：定时任务到 publishTime 才把活动放进可抢列表。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.containsString;

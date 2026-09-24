@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ─────────────────────────────────────┐
+ * │ SecKillIntegrationTest.java               │
+ * │ 场景：创建活动、等到可抢、抢券、再查到券    │
+ * └───────────────────────────────────────────┘
+ *
+ * 同一 MockMvc 依次打三条路径
+ * │
+ * ▼
+ * 【本文件】/admin 创建 → /command 抢 → /query 查
+ * │
+ * ├── 创建 ──▶ HTTP 200，得到活动编号
+ * ├── 抢券 ──▶ HTTP 200「Request accepted」
+ * └── 查询 ──▶ 正文含活动编号和顾客 zyy
+ *
+ * 一句话：setUp 清空活动、事件和券仓库后再走完整路径。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.containsString;

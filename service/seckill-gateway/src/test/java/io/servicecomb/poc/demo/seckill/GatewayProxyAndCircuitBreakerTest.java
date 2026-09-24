@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ GatewayProxyAndCircuitBreakerTest.java        │
+ * │ 场景：网关转发查询与抢券，下游出错时回退        │
+ * └────────────────────────────────────────────────┘
+ *
+ * WebTestClient 打 /query 或 /command
+ * │
+ * ▼
+ * 【本文件】上游是 MockWebServer，限流计数在内存
+ * │
+ * ├── 下游 200 ──▶ 原样返回
+ * ├── 下游 429 ──▶ 原样透传
+ * └── 下游 500 ──▶ HTTP 503「query unavailable」
+ *
+ * 一句话：业务上的 429 不改成熔断文案。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import java.io.IOException;

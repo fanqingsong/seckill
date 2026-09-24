@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ PersistOutboxWriter.java                        │
+ * │ 链路：抢券 · Persist 落库                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * GrabPersistWorker 已从 Redis 流取出令牌
+ * │
+ * ▼
+ * 【本文件】同一事务写入事件行和 outbox
+ * │
+ * ▼
+ * 提交之后由 Command 的 relay 发 Kafka（本文件不发）
+ *
+ * 一句话：事件和待发消息一起提交，避免只留下一半。
+ */
+
 package io.servicecomb.poc.demo.seckill.persist;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;

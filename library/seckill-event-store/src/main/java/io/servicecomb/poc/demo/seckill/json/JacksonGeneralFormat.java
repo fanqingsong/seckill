@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ JacksonGeneralFormat.java                            │
+ * │ 链路：JSON 互转                                      │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   SecKillJacksonConfig 注册本类
+ *      │
+ *      ▼
+ *   【本文件】对象与 JSON 字符串互转
+ *      │
+ *      ▼
+ *   事件正文、outbox 的 payload
+ *
+ * 一句话：只在内存里转换文本，不连接 PostgreSQL 或 Kafka。
+ */
+
 package io.servicecomb.poc.demo.seckill.json;
 
 import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY;

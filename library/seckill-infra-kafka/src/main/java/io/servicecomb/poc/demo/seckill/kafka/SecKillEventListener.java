@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillEventListener.java                     │
+ * │ 链路：投影 · 事件回调                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * topic seckill.events
+ *         │
+ *         ▼
+ *     【本文件】
+ *         │
+ *         ▼
+ *  读模型 / ES 搜索
+ *
+ * 一句话：回调本身不连 Kafka；投影落到读模型和搜索。
+ */
+
 package io.servicecomb.poc.demo.seckill.kafka;
 
 /**

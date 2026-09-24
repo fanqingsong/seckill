@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ OutboxEntity.java                                    │
+ * │ 链路：事务性 outbox                                  │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   与事件行处在同一事务
+ *      │
+ *      ▼
+ *   【本文件】eventId、kafkaKey、payload
+ *      │
+ *      ▼
+ *   提交后 relay 发 Kafka 再标已发布
+ *
+ * 一句话：先落 PostgreSQL 再发消息，本类不直接访问 Kafka。
+ */
+
 package io.servicecomb.poc.demo.seckill.entities;
 
 import jakarta.persistence.Column;

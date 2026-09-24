@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ────────────────────────────────────────────────────┐
+ * │ InvocationExceptionHandlerExceptionResolver.java          │
+ * │ 链路：测试 · Spring MVC 异常                              │
+ * └───────────────────────────────────────────────────────────┘
+ *
+ * 控制器抛出 ResponseStatusException
+ * │
+ * ▼
+ * 【本文件】按状态码挑选测试处理类
+ * │
+ * ├── 400 ──▶ BadRequestExceptionAdvice
+ * └── 429 ──▶ TooManyRequestsExceptionAdvice
+ *
+ * 一句话：只把测试里的异常变成对应 HTTP 状态，不写业务数据。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import java.lang.reflect.Method;

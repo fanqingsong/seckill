@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ InMemoryGatewayRateLimiter.java                 │
+ * │ 链路：转发 · 内存令牌桶                         │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 路由按客户端 IP 来要令牌
+ * │
+ * ▼
+ * 【本文件】在本进程里补令牌、扣令牌
+ * │
+ * ├── 够 ──▶ 继续转发到下游
+ * └── 不够 ──▶ 拒绝，不访问 Redis
+ *
+ * 一句话：默认限流计数留在内存；全集群计数要改成 rate-limiter=redis。
+ */
+
 package io.servicecomb.poc.demo.seckill.gateway;
 
 import java.util.HashMap;

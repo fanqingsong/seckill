@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ InMemoryEventBus.java                         │
+ * │ 链路：投递 · 内存总线                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * OutboxRelay
+ *      │
+ *      ▼
+ *  【本文件】
+ *      │
+ *      ▼
+ * 监听器（不连 Kafka）
+ *
+ * 一句话：mode 不是 prod 时，用本类代替 seckill.events。
+ */
+
 package io.servicecomb.poc.demo.seckill.kafka;
 
 import java.util.List;

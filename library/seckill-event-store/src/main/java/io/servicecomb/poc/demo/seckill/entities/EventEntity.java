@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ EventEntity.java                                     │
+ * │ 链路：追加事件行                                     │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Command 开始/结束，Persist 抢到券
+ *      │
+ *      ▼
+ *   【本文件】sec_kill_event 的一行
+ *      │
+ *      ▼
+ *   与 outbox 同一事务；回放再读
+ *
+ * 一句话：事件只追加；抢券 HTTP 线程不插入本表。
+ */
+
 package io.servicecomb.poc.demo.seckill.entities;
 
 import java.util.UUID;

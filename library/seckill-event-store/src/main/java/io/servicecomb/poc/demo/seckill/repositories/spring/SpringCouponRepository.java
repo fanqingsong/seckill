@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SpringCouponRepository.java                          │
+ * │ 链路：券实体表                                       │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   集成测试或按 id 增量读取
+ *      │
+ *      ▼
+ *   【本文件】CouponEntity 的 JPA 仓库
+ *      │
+ *      ▼
+ *   PostgreSQL 券表（查询不扫此表）
+ *
+ * 一句话：查询页不靠本接口，投影写入的是读模型。
+ */
+
 package io.servicecomb.poc.demo.seckill.repositories.spring;
 
 import io.servicecomb.poc.demo.seckill.entities.CouponEntity;

@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillRedisConfig.java                       │
+ * │ 链路：启动 · 选择存储                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * Spring 创建 @Bean
+ *        │
+ *        ▼
+ *    【本文件】
+ *  mode 是否等于 prod
+ *   ├─ 是 ─ Jedis
+ *   └─ 否 ─ 内存类
+ *
+ * 一句话：profile 名不选客户端；mode=prod 才连 Redis。
+ */
+
 package io.servicecomb.poc.demo.seckill.redis;
 
 import org.springframework.beans.factory.annotation.Value;

@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SecKillEventType.java                                │
+ * │ 链路：事件种类常量                                   │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Command、Persist、Event、Admin
+ *      │
+ *      ▼
+ *   【本文件】三种 type 字符串常量
+ *      │
+ *      ▼
+ *   与事件表 type 列对照
+ *
+ * 一句话：常量等于类的简单名，本类不写存储。
+ */
+
 package io.servicecomb.poc.demo.seckill.event;
 
 /**

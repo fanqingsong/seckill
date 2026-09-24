@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ KafkaSecKillEventConsumer.java                │
+ * │ 链路：投影 · 消费事件                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * topic seckill.events
+ *         │
+ *         ▼
+ *     【本文件】
+ *         ├─ 投影成功
+ *         └─ 失败进 .dlt
+ *
+ * 一句话：消费 seckill.events；失败改送到 .dlt 再提交。
+ */
+
 package io.servicecomb.poc.demo.seckill.kafka;
 
 import java.time.Duration;

@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ ApiExceptionHandler.java                        │
+ * │ 链路：测试 · 状态异常转响应                     │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 控制器抛出 ResponseStatusException
+ * │
+ * ▼
+ * 【本文件】用异常上的状态码和原因写 HTTP
+ * │
+ * ▼
+ * MockMvc 可断言的响应（不访问 Redis / PostgreSQL / Kafka）
+ *
+ * 一句话：测试支持把 Spring MVC 异常变成对应的 HTTP 状态码。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import org.springframework.http.ResponseEntity;

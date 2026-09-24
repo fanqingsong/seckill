@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ───────────────────────────────────┐
+ * │ SecKillCommandServiceTest.java          │
+ * │ 场景：库存够就成功，卖完失败，不能抢两次 │
+ * └─────────────────────────────────────────┘
+ *
+ * 直接调用 addCouponTo，也可多线程同时抢
+ * │
+ * ▼
+ * 【本文件】库存是内存 Redis（InMemorySecKillStore）
+ * │
+ * ├── 未卖完 ──▶ Success（outbox 被 Mockito 桩空）
+ * ├── 卖完 ──▶ Failed
+ * └── 同一顾客 ──▶ Duplicate
+ *
+ * 一句话：热路径只扣内存库存，本类不写库。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.core.Is.is;

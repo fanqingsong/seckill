@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ PromotionDto.java                                    │
+ * │ 链路：创建活动 · 请求体                              │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Admin 的 HTTP 请求体
+ *      │
+ *      ▼
+ *   【本文件】券数、折扣、开始与结束时间
+ *      │
+ *      ▼
+ *   组装 PromotionEntity 写入活动表
+ *
+ * 一句话：这是请求参数，不是 PostgreSQL 里的活动行。
+ */
+
 package io.servicecomb.poc.demo.seckill.dto;
 
 import java.util.Date;

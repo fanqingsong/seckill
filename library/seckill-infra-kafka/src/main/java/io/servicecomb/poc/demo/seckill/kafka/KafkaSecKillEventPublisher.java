@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ KafkaSecKillEventPublisher.java               │
+ * │ 链路：投递 · Kafka 发布                       │
+ * └───────────────────────────────────────────────┘
+ *
+ * OutboxRelay
+ *      │
+ *      ▼
+ *  【本文件】
+ *      │
+ *      ▼
+ * seckill.events / .dlt
+ *
+ * 一句话：mode 等于 prod 时同步发到 seckill.events。
+ */
+
 package io.servicecomb.poc.demo.seckill.kafka;
 
 import java.util.Properties;

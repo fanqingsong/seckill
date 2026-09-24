@@ -14,6 +14,22 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ─────────────────────────────────────┐
+ * │ SecKillAdminApplicationTest.java          │
+ * │ 场景：创建活动、修改活动，以及非法参数      │
+ * └───────────────────────────────────────────┘
+ *
+ * MockMvc POST / PUT /admin/promotions/
+ * │
+ * ▼
+ * 【本文件】经 SpringPromotionRepository 落库再读回
+ * │
+ * ├── 合法 ──▶ HTTP 200，仓库字段与提交一致
+ * └── 券数为 0、折扣为负、活动不存在 ──▶ HTTP 400
+ *
+ * 一句话：只测 Admin 创建与修改，这条请求还不初始化库存。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.containsString;

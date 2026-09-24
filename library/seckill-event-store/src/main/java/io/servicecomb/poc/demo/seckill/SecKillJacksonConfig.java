@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SecKillJacksonConfig.java                            │
+ * │ 链路：Spring 装配                                    │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Spring 启动时读取本配置
+ *      │
+ *      ▼
+ *   【本文件】注册 Format 与事件转换器
+ *      │
+ *      ▼
+ *   Command、Persist、Event 注入使用
+ *
+ * 一句话：只往容器放两个内存对象，不访问数据库。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;

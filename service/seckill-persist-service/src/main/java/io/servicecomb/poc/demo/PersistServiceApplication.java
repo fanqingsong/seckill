@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ PersistServiceApplication.java                  │
+ * │ 链路：抢券 · Persist 服务入口                   │
+ * └─────────────────────────────────────────────────┘
+ *
+ * Command 的 Redis Lua 已把令牌放进抢券流
+ * │
+ * ▼
+ * 【本文件】启动 Persist 进程（端口 8086）
+ * │
+ * ▼
+ * 后台消费 Redis 流，同一事务写事件和 outbox
+ *
+ * 一句话：本进程不接抢券 HTTP；库里的券行在它消费之后才出现。
+ */
+
 package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;

@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ─────────────────────────────────┐
+ * │ EventProjectorOrderingTest.java       │
+ * │ 场景：乱序到达的抢券事件仍按序号投影   │
+ * └───────────────────────────────────────┘
+ *
+ * 序号有洞先攒着；事件表已有更晚行则直接应用
+ * │
+ * ▼
+ * 【本文件】调用 EventProjector.project
+ * │
+ * ├── 读模型 ──▶ 内存 Redis（InMemorySecKillStore）
+ * └── 搜索 ──▶ 内存 ES（InMemorySearchIndex）
+ *
+ * 一句话：序号有洞时先攒着，补齐后再写入两处内存替身。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.core.Is.is;

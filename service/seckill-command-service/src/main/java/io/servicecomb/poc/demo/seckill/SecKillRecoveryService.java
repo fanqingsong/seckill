@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillRecoveryService.java                     │
+ * │ 链路：抢券 · Command 恢复                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * publishTime，Redis 还没有库存键
+ * │
+ * ▼
+ * 【本文件】只读事件表，算出剩余张数和已抢顾客
+ * │
+ * ▼
+ * 引导器据此初始化 Redis（本文件不写库、不发 Kafka）
+ *
+ * 一句话：重启前先看事件表，避免把已卖出的券再放回 Redis。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.entities.EventEntity;

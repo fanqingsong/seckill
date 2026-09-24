@@ -14,6 +14,21 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ CommandServiceApplication.java                  │
+ * │ 链路：抢券 · Command 服务入口                    │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 【本文件】启动进程，打开事务（端口 8082）
+ * │
+ * ├─ publishTime ─▼ 初始化 Redis + PromotionStartEvent
+ * ├─ 抢券 ─▼ Redis Lua（HTTP 成功时 PostgreSQL 还没有这张券）
+ * └─ 提交之后 ─▼ outbox relay 发 Kafka
+ *
+ * 一句话：入口只拉起进程，热路径不在 HTTP 里写 PostgreSQL。
+ */
+
 package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;

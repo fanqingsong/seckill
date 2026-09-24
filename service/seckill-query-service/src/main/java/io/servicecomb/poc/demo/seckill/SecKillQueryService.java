@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillQueryService.java                        │
+ * │ 链路：查询 · 读服务                             │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 控制器把 HTTP 转进来
+ * │
+ * ▼
+ * 【本文件】按接口选择存储
+ * │
+ * ├── 我的券 / 进行中活动 / 增量券 ──▶ Redis
+ * └── 搜索 ──▶ Elasticsearch
+ *
+ * 一句话：不写库存，也不扫事件表；刚抢到的券可能还查不到。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.entities.CouponEntity;

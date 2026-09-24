@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SpringOutboxRepository.java                          │
+ * │ 链路：outbox 投递                                    │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   与事件同一事务里 save
+ *      │
+ *      ▼
+ *   【本文件】取出尚未发布的最早 50 行
+ *      │
+ *      ▼
+ *   relay 发往 Kafka seckill.events
+ *
+ * 一句话：只读写 PostgreSQL 的 outbox，不读 Redis。
+ */
+
 package io.servicecomb.poc.demo.seckill.repositories.spring;
 
 import io.servicecomb.poc.demo.seckill.entities.OutboxEntity;

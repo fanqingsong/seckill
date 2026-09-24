@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ InMemorySecKillStore.java                     │
+ * │ 链路：抢券 · 内存库存                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * tryGrab ▼【本文件】
+ *  ├─ 内存库存
+ *  ├─ 已抢集合
+ *  └─ 内存抢券队列
+ * ──── 读模型另写 ────
+ *  │
+ *  ▼ 查询读模型
+ *
+ * 一句话：mode 不是 prod（缺省 memory）时用本类。
+ */
+
 package io.servicecomb.poc.demo.seckill.redis;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;

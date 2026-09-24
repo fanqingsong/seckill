@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ CouponEntity.java                                    │
+ * │ 链路：抢到的券                                       │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Persist 放进抢券事件正文
+ *      │
+ *      ▼
+ *   【本文件】折扣、顾客、抢到时间
+ *      │
+ *      ▼
+ *   事件 content，随后供投影读取
+ *
+ * 一句话：券先作为事件正文落库，查询页不扫这张表。
+ */
+
 package io.servicecomb.poc.demo.seckill.entities;
 
 import org.hibernate.annotations.JdbcTypeCode;

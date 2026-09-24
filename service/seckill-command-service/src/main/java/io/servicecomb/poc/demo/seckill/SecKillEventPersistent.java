@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillEventPersistent.java                     │
+ * │ 链路：抢券 · Command 落库接口                   │
+ * └─────────────────────────────────────────────────┘
+ *
+ * PromotionStartEvent / PromotionFinishEvent
+ * │
+ * ▼
+ * 【本文件】约定把事件交给实现类
+ * │
+ * ▼
+ * 实现类同一事务写事件和 outbox，提交后才发 Kafka
+ *
+ * 一句话：抢券 HTTP 成功不会立刻经本接口写出 CouponGrabbedEvent。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.event.SecKillEvent;

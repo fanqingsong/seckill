@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ──────────────────────────────────────┐
+ * │ SecKillRecoveryServiceTest.java            │
+ * │ 场景：按事件判断未开始、进行中、已结束      │
+ * └────────────────────────────────────────────┘
+ *
+ * setup 用 Mockito 写死三种活动的事件列表
+ * │
+ * ▼
+ * 【本文件】调用 SecKillRecoveryService.check
+ * │
+ * ├── 空列表 ──▶ 未开始，剩余等于券总数
+ * ├── 开始加一张券 ──▶ 已开始，剩余少 1
+ * └── 卖完加结束 ──▶ 已结束，剩余 0
+ *
+ * 一句话：事件仓库是假对象，不连接数据库。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.collection.IsIterableContainingInOrder.contains;

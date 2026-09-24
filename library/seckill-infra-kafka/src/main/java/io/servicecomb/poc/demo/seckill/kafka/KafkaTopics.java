@@ -1,3 +1,19 @@
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ KafkaTopics.java                              │
+ * │ 链路：投递 · topic 名                         │
+ * └───────────────────────────────────────────────┘
+ *
+ * 发布端与消费端
+ *       │
+ *       ▼
+ *   【本文件】
+ *       ├─ seckill.events
+ *       └─ seckill.events.dlt
+ *
+ * 一句话：本类不连 Kafka，只固定 topic 的两个名字。
+ */
+
 package io.servicecomb.poc.demo.seckill.kafka;
 
 /**

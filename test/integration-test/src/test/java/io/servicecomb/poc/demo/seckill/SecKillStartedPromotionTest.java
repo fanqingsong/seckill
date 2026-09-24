@@ -14,6 +14,21 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ────────────────────────────────────────┐
+ * │ SecKillStartedPromotionTest.java             │
+ * │ 场景：活动已经开始就不能再改                  │
+ * └──────────────────────────────────────────────┘
+ *
+ * POST /admin/promotions/ 创建开始时间是现在的活动
+ * │
+ * ▼
+ * 【本文件】等它开始后 PUT 同一活动编号
+ * │
+ * └──▶ HTTP 400，正文含 had started and changes is rejected
+ *
+ * 一句话：只装配 Admin 控制器的 MockMvc。
+ */
 package io.servicecomb.poc.demo.seckill;
 
 import static org.hamcrest.CoreMatchers.containsString;

@@ -1,3 +1,17 @@
+/*
+ * ┌─ 文件 ──────────────────────────────────────────┐
+ * │ SecKillCommandConfig.java                       │
+ * │ 链路：抢券 · Command 装配                       │
+ * └─────────────────────────────────────────────────┘
+ *
+ * 【本文件】装入 Redis、Kafka，并启动引导器
+ * │
+ * ├─ publishTime ─▼ 初始化 Redis + PromotionStartEvent
+ * └─ 抢券 Bean ─▼ 热路径只走 Redis Lua
+ *
+ * 一句话：本类只声明 Bean，到点才有库存，HTTP 成功不等于已落库。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;

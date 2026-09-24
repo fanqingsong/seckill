@@ -1,3 +1,20 @@
+/*
+ * ┌─ 文件 ─────────────────────────────────────┐
+ * │ App.tsx                                    │
+ * │ 浏览器 → nginx :8080                       │
+ * └────────────────────────────────────────────┘
+ *
+ * 浏览器
+ * │
+ * ▼
+ * 【本文件】秒杀柜台整页，请求经 nginx :8080
+ * │
+ * ├── 左侧表单 ──▶ /admin 创建活动
+ * ├── 活动列表、我的券 ──▶ /query
+ * └── 抢券按钮 ──▶ /command
+ *
+ * 一句话：本文件不打开 PostgreSQL；抢券成功后还要再查一会儿。
+ */
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { createPromotion, grabCoupon, listCoupons, listPromotions, type Coupon, type Promotion } from './api'
 import './App.css'

@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SpringSecKillEventRepository.java                    │
+ * │ 链路：追加与回放事件                                 │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Command 开始/结束，Persist 抢到券
+ *      │
+ *      ▼
+ *   【本文件】事件表的保存与按序号查询
+ *      │
+ *      ▼
+ *   PostgreSQL 表 sec_kill_event
+ *
+ * 一句话：抢券 HTTP 不调用本接口，券事件由 Persist 追加。
+ */
+
 package io.servicecomb.poc.demo.seckill.repositories.spring;
 
 import io.servicecomb.poc.demo.seckill.entities.EventEntity;

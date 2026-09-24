@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SpringPromotionRepository.java                       │
+ * │ 链路：活动定义表                                     │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Admin 保存，Command 按 id 增量读
+ *      │
+ *      ▼
+ *   【本文件】PromotionEntity 的 JPA 仓库
+ *      │
+ *      ▼
+ *   PostgreSQL 活动定义表
+ *
+ * 一句话：读写的是活动定义，删除活动也不在这里发消息。
+ */
+
 package io.servicecomb.poc.demo.seckill.repositories.spring;
 
 import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;

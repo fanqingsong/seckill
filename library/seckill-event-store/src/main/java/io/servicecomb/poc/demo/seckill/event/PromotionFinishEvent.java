@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ PromotionFinishEvent.java                            │
+ * │ 链路：活动结束                                       │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   Command 到点，或 Persist 卖完
+ *      │
+ *      ▼
+ *   【本文件】这场活动已经结束
+ *      │
+ *      ▼
+ *   PostgreSQL 事件表，并写入 outbox
+ *
+ * 一句话：结束先和 outbox 一起提交，Kafka 由 relay 再发。
+ */
+
 package io.servicecomb.poc.demo.seckill.event;
 
 import io.servicecomb.poc.demo.seckill.Format;

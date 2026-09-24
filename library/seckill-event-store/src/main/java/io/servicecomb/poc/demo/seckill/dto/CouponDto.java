@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ CouponDto.java                                       │
+ * │ 链路：抢券 · 请求体                                  │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   浏览器 POST /command/coupons/
+ *      │
+ *      ▼
+ *   【本文件】promotionId 与 customerId
+ *      │
+ *      ▼
+ *   Command 校验后，再走 Redis Lua
+ *
+ * 一句话：只装请求字段；HTTP 成功时事件表通常还没有这张券。
+ */
+
 package io.servicecomb.poc.demo.seckill.dto;
 
 /**

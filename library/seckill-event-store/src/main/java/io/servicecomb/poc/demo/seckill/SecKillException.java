@@ -14,6 +14,23 @@
  *   limitations under the License.
  */
 
+/*
+ * ┌─ 文件 ───────────────────────────────────────────────┐
+ * │ SecKillException.java                                │
+ * │ 链路：JSON 失败                                      │
+ * └──────────────────────────────────────────────────────┘
+ *
+ *   JacksonGeneralFormat 捕获异常
+ *      │
+ *      ▼
+ *   【本文件】把 JSON 失败包成运行时异常
+ *      │
+ *      ▼
+ *   调用方看到原因后向上抛出
+ *
+ * 一句话：只传递失败原因，不写任何表。
+ */
+
 package io.servicecomb.poc.demo.seckill;
 
 /**
