@@ -8,14 +8,15 @@ It began as an Apache ServiceComb demo. HTTP is now **Spring MVC on Spring Boot 
 
 ## Architecture of SecKill
 
-Five Java services plus a React UI live under **`service/`**. Shared Maven libraries live under **`library/`**. Tests and JMeter live under **`test/`**.
+Six Java services plus a React UI live under **`service/`**. Shared Maven libraries live under **`library/`**. Tests and JMeter live under **`test/`**.
 
 | Service | Folder | Port | What it does |
 |---------|--------|------|----------------|
 | Frontend | [`service/frontend/`](service/frontend/) | 8080 | React UI; nginx reverse-proxies `/admin`, `/command`, `/query` to Gateway (replay is **not** proxied) |
 | Gateway | [`service/seckill-gateway/`](service/seckill-gateway/) | 8085 | Spring Cloud Gateway: Redis/in-memory rate limit + Resilience4j circuit breaker |
 | Admin | [`service/seckill-admin-service/`](service/seckill-admin-service/) | 8081 | Create/update promotions in PostgreSQL |
-| Command | [`service/seckill-command-service/`](service/seckill-command-service/) | 8082 | Redis Lua grab; async persist events + outbox; relay to Kafka |
+| Command | [`service/seckill-command-service/`](service/seckill-command-service/) | 8082 | Redis Lua grab; start/finish promotions; relay outbox to Kafka |
+| Persist | [`service/seckill-persist-service/`](service/seckill-persist-service/) | 8086 | Consume grab stream; write events + outbox |
 | Query | [`service/seckill-query-service/`](service/seckill-query-service/) | 8083 | Read Redis (hot) and Elasticsearch (search) |
 | Event | [`service/seckill-event-service/`](service/seckill-event-service/) | 8084 | Consume Kafka, project Redis/ES; `POST /admin/replay` |
 
@@ -45,8 +46,8 @@ flowchart TB
   subgraph writeSide["Write side"]
     Admin["Admin Service :8081"]
     Cmd["Command Service :8082"]
+    Persist["Persist Service :8086"]
     RedisHot["Redis Lua stock plus grab queue"]
-    Worker["Grab persist worker"]
     PG[("PostgreSQL event store + outbox")]
   end
 
@@ -66,8 +67,8 @@ flowchart TB
   GW -->|"GET /query/promotions<br/>GET /query/coupons/{id}"| Query
   Admin --> PG
   Cmd -->|"hot path: one Lua"| RedisHot
-  RedisHot -->|"XADD grab token"| Worker
-  Worker -->|"same TX event plus outbox"| PG
+  RedisHot -->|"XADD grab token"| Persist
+  Persist -->|"same TX event plus outbox"| PG
   PG -->|"outbox relay"| Kafka
   Kafka --> Event
   Event --> RedisRead
@@ -112,7 +113,7 @@ sequenceDiagram
   participant GW as Gateway :8085
   participant Cmd as Command :8082
   participant Redis as Redis Lua
-  participant Worker as GrabPersistWorker
+  participant Persist as Persist Service
   participant PG as PostgreSQL
   participant Kafka as Kafka
   participant Event as Event Service
@@ -139,8 +140,8 @@ sequenceDiagram
   end
 
   Note over Redis,PG: Persist is off the request thread
-  Worker->>Redis: XREADGROUP seckill:grabs
-  Worker->>PG: event plus outbox in one transaction
+  Persist->>Redis: XREADGROUP seckill:grabs
+  Persist->>PG: event plus outbox in one transaction
   Note over PG,Kafka: Outbox relay publishes after commit
   PG->>Kafka: seckill.events key=promotionId
   Kafka->>Event: consume
@@ -208,6 +209,7 @@ seckill/
 │   ├── seckill-gateway/             # Gateway :8085
 │   ├── seckill-admin-service/       # Admin :8081
 │   ├── seckill-command-service/     # Command :8082
+│   ├── seckill-persist-service/     # Persist :8086
 │   ├── seckill-query-service/       # Query :8083
 │   └── seckill-event-service/       # Event :8084
 ├── library/
@@ -247,19 +249,28 @@ seckill/
 
 ### Command — [`service/seckill-command-service/`](service/seckill-command-service/)
 
-**Function:** hot-path grab (Lua), async persist, outbox → Kafka, start/finish promotions, recover empty Redis. Extra notes: [Command README](service/seckill-command-service/README.md).
+**Function:** hot-path grab (Lua), outbox → Kafka, start/finish promotions, recover empty Redis. Grab tokens are persisted by [Persist](service/seckill-persist-service/). Extra notes: [Command README](service/seckill-command-service/README.md).
 
 | Review | Path |
 |--------|------|
 | Boot | [`CommandServiceApplication.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/CommandServiceApplication.java) |
 | HTTP `POST /command/coupons/` | [`web/SecKillCommandRestController.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/web/SecKillCommandRestController.java) |
 | Grab orchestration | [`SecKillCommandService.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/SecKillCommandService.java) |
-| Persist worker (Redis stream) | [`GrabPersistWorker.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/GrabPersistWorker.java) |
 | Same TX event + outbox | [`TransactionalEventOutboxWriter.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/TransactionalEventOutboxWriter.java) |
 | Outbox → Kafka | [`OutboxRelay.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/OutboxRelay.java) |
 | Schedule start / finish | [`SecKillPromotionBootstrap.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/SecKillPromotionBootstrap.java) |
 | Rebuild stock from events | [`SecKillRecoveryService.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/SecKillRecoveryService.java) |
 | Beans | [`SecKillCommandConfig.java`](service/seckill-command-service/src/main/java/io/servicecomb/poc/demo/seckill/SecKillCommandConfig.java) |
+
+### Persist — [`service/seckill-persist-service/`](service/seckill-persist-service/)
+
+**Function:** consume Redis stream `seckill:grabs` and write `CouponGrabbedEvent` plus outbox. Last unit of stock writes one `PromotionFinishEvent`. No grab HTTP API. Command's `OutboxRelay` publishes the rows.
+
+| Review | Path |
+|--------|------|
+| Boot | [`PersistServiceApplication.java`](service/seckill-persist-service/src/main/java/io/servicecomb/poc/demo/PersistServiceApplication.java) |
+| Stream consumer | [`persist/GrabPersistWorker.java`](service/seckill-persist-service/src/main/java/io/servicecomb/poc/demo/seckill/persist/GrabPersistWorker.java) |
+| Same TX event + outbox | [`persist/PersistOutboxWriter.java`](service/seckill-persist-service/src/main/java/io/servicecomb/poc/demo/seckill/persist/PersistOutboxWriter.java) |
 
 ### Query — [`service/seckill-query-service/`](service/seckill-query-service/)
 

@@ -6,7 +6,7 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     mvn -B -N install -DskipTests && \
     mvn -B install -DskipTests -pl docker-build-config && \
     mvn -B package -DskipTests \
-      -pl service/seckill-admin-service,service/seckill-command-service,service/seckill-query-service,service/seckill-event-service,service/seckill-gateway \
+      -pl service/seckill-admin-service,service/seckill-command-service,service/seckill-persist-service,service/seckill-query-service,service/seckill-event-service,service/seckill-gateway \
       -am
 
 FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/eclipse-temurin:17-jre AS admin-service
@@ -19,6 +19,12 @@ FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/eclipse-temurin:17-jre A
 WORKDIR /app
 COPY --from=builder /build/service/seckill-command-service/target/seckill/seckill-command-service-0.2.0-SNAPSHOT-exec.jar app.jar
 EXPOSE 8082
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/eclipse-temurin:17-jre AS persist-service
+WORKDIR /app
+COPY --from=builder /build/service/seckill-persist-service/target/seckill/seckill-persist-service-0.2.0-SNAPSHOT-exec.jar app.jar
+EXPOSE 8086
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
 
 FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/eclipse-temurin:17-jre AS query-service

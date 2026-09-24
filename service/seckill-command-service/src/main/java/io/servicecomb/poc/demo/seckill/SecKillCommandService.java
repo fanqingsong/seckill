@@ -59,7 +59,8 @@ public class SecKillCommandService<T> {
   }
 
   public void finish() {
-    if (finished.get()) {
+    if (finished.get() || writer.hasFinishEvent(promotion.getPromotionId())) {
+      finished.set(true);
       return;
     }
     if (!finished.compareAndSet(false, true)) {

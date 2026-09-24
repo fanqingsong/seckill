@@ -1,20 +1,20 @@
-package io.servicecomb.poc.demo.seckill;
+package io.servicecomb.poc.demo.seckill.persist;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 
-import io.servicecomb.poc.demo.CommandServiceApplication;
+import io.servicecomb.poc.demo.PersistServiceApplication;
 import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
 import io.servicecomb.poc.demo.seckill.event.CouponGrabbedEvent;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventType;
 import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
+import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRepository;
 import java.util.Collections;
 import java.util.Date;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,17 +23,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest(classes = CommandServiceApplication.class)
+@SpringBootTest(classes = PersistServiceApplication.class)
 public class GrabPersistWorkerTest {
 
   @Autowired
   private SecKillStore store;
 
   @Autowired
-  private Map<String, SecKillCommandService<String>> commandServices;
+  private SpringPromotionRepository promotionRepository;
 
   @Autowired
-  private TransactionalEventOutboxWriter writer;
+  private PersistOutboxWriter writer;
 
   @Autowired
   private SecKillEventFormat eventFormat;
@@ -43,37 +43,47 @@ public class GrabPersistWorkerTest {
 
   @Test
   public void drainPersistsGrabbedEvent() {
-    PromotionEntity promotion = new PromotionEntity(new Date(), 5, 0.7f);
-    store.initStock(promotion.getPromotionId(), 5, Collections.<String>emptySet(), 0);
-    commandServices.put(promotion.getPromotionId(),
-        new SecKillCommandService<String>(promotion, store, writer, eventFormat, false));
+    PromotionEntity promotion = savedPromotion(5);
 
-    assertThat(commandServices.get(promotion.getPromotionId()).addCouponTo("c1"), is(SecKillGrabResult.Success));
+    assertThat(store.tryGrab(promotion.getPromotionId(), "c1").isSuccess(), is(true));
 
-    waitAtMost(2, SECONDS).until(() -> grabbedCount(promotion.getPromotionId()) >= 1);
+    waitAtMost(2, SECONDS).until(() -> count(promotion.getPromotionId(), SecKillEventType.CouponGrabbedEvent) >= 1);
     assertThat(eventRepository.findByPromotionId(promotion.getPromotionId()).get(0).getCustomerId(), is("c1"));
   }
 
   @Test
   public void duplicatePersistStillAcksToken() {
-    PromotionEntity promotion = new PromotionEntity(new Date(), 5, 0.7f);
+    PromotionEntity promotion = savedPromotion(5);
     CouponGrabbedEvent<String> existing = new CouponGrabbedEvent<String>(promotion, "dup");
     writer.persist(eventFormat.toMessage(existing, UUID.randomUUID().toString(), 1L));
 
     store.initStock(promotion.getPromotionId(), 5, Collections.<String>emptySet(), 1);
-    commandServices.put(promotion.getPromotionId(),
-        new SecKillCommandService<String>(promotion, store, writer, eventFormat, false));
-
     int pendingBefore = store.pendingGrabCount();
-    assertThat(commandServices.get(promotion.getPromotionId()).addCouponTo("dup"), is(SecKillGrabResult.Success));
+    assertThat(store.tryGrab(promotion.getPromotionId(), "dup").isSuccess(), is(true));
 
     waitAtMost(2, SECONDS).until(() -> store.pendingGrabCount() <= pendingBefore);
-    assertThat(grabbedCount(promotion.getPromotionId()), is(1L));
+    assertThat(count(promotion.getPromotionId(), SecKillEventType.CouponGrabbedEvent), is(1L));
   }
 
-  private long grabbedCount(String promotionId) {
+  @Test
+  public void lastCouponWritesFinishEventOnce() {
+    PromotionEntity promotion = savedPromotion(1);
+
+    assertThat(store.tryGrab(promotion.getPromotionId(), "last").isSuccess(), is(true));
+
+    waitAtMost(2, SECONDS).until(() -> count(promotion.getPromotionId(), SecKillEventType.PromotionFinishEvent) == 1);
+    assertThat(count(promotion.getPromotionId(), SecKillEventType.PromotionFinishEvent), is(1L));
+  }
+
+  private PromotionEntity savedPromotion(int coupons) {
+    PromotionEntity promotion = promotionRepository.save(new PromotionEntity(new Date(), coupons, 0.7f));
+    store.initStock(promotion.getPromotionId(), coupons, Collections.<String>emptySet(), 0);
+    return promotion;
+  }
+
+  private long count(String promotionId, String type) {
     return eventRepository.findByPromotionId(promotionId).stream()
-        .filter(e -> SecKillEventType.CouponGrabbedEvent.equals(e.getType()))
+        .filter(event -> type.equals(event.getType()))
         .count();
   }
 }

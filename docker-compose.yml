@@ -107,6 +107,28 @@ services:
       - "8082:8082"
     restart: unless-stopped
 
+  persist-service:
+    image: "seckill-persist-service:0.2.0-SNAPSHOT"
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: persist-service
+    hostname: persist-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    links:
+      - "postgres:postgres.servicecomb.io"
+      - "redis:redis.servicecomb.io"
+    environment:
+      - JAVA_OPTS=-Dspring.profiles.active=prd
+    ports:
+      - "8086:8086"
+    restart: unless-stopped
+
   query-service:
     image: "seckill-query-service:0.2.0-SNAPSHOT"
     pull_policy: never
