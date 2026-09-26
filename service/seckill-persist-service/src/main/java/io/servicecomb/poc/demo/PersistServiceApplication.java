@@ -29,8 +29,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  * <p>
  * {@code @EnableTransactionManagement(proxyTargetClass = true)} 打开声明式事务，并使用子类代理。
  * 这样 {@code PersistOutboxWriter.persist} 上的 {@code @Transactional} 才会包住具体类的方法：
- * {@code CouponGrabbedEvent} 和 outbox 行在同一个 PostgreSQL 事务里提交。Kafka 仍由 Command 服务的
- * outbox relay 在提交之后发送，本进程不发消息。
+ * {@code CouponGrabbedEvent} 和 outbox 行在同一个 PostgreSQL 事务里提交。Kafka 由 Outbox Relay 服务
+ * 在提交之后发送，本进程不发消息。
  * <p>
  * Command 返回「已接受」时，本服务可能还没消费到那条 Redis 令牌，所以 PostgreSQL 里还没有对应的行。
  */

@@ -30,7 +30,7 @@ import jakarta.persistence.Table;
  * <p>
  * Command 服务在写入 {@code PromotionStartEvent}、{@code PromotionFinishEvent} 时，
  * Persist 服务在写入 {@code CouponGrabbedEvent} 时，都会和事件行放在同一个 PostgreSQL
- * 事务里插入本类。事务提交之后，Command 里的 outbox relay 调用 {@link #markPublished()}
+ * 事务里插入本类。事务提交之后，Outbox Relay 服务调用 {@link #markPublished()}
  * 再把 {@code published} 改成 true。本类不访问 Redis，也不直接发 Kafka。
  * 抢券 HTTP 线程不会插入这一行；HTTP 返回成功时，这里可能还没有对应记录。
  * <p>

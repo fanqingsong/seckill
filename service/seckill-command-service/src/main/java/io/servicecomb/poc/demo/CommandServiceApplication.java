@@ -24,7 +24,7 @@
  * │
  * ├─ publishTime ─▼ 初始化 Redis + PromotionStartEvent
  * ├─ 抢券 ─▼ Redis Lua（HTTP 成功时 PostgreSQL 还没有这张券）
- * └─ 提交之后 ─▼ outbox relay 发 Kafka
+ * └─ 提交 outbox ─▼ Relay 服务发 Kafka
  *
  * 一句话：入口只拉起进程，热路径不在 HTTP 里写 PostgreSQL。
  */
@@ -49,7 +49,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  * 需要子类代理，是因为事务方法写在具体类上，不在单独的接口方法上。
  * <p>
  * 本进程里：到 {@code publishTime} 才初始化 Redis 并可能写入 {@code PromotionStartEvent}；
- * 抢券只做 Redis Lua；outbox 在事务提交之后才发到 Kafka。HTTP 返回成功时，PostgreSQL
+ * 抢券只做 Redis Lua；outbox 在事务提交之后由 Relay 服务发到 Kafka。HTTP 返回成功时，PostgreSQL
  * 里通常还没有这张券的 {@code CouponGrabbedEvent}，那一行由 Persist 服务稍后写入。
  */
 @SpringBootApplication

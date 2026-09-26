@@ -100,12 +100,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
     links:
       - "postgres:postgres.servicecomb.io"
       - "redis:redis.servicecomb.io"
-      - "kafka:kafka.servicecomb.io"
     environment:
       - JAVA_OPTS=-Dspring.profiles.active=prd
     ports:
@@ -132,6 +129,28 @@ services:
       - JAVA_OPTS=-Dspring.profiles.active=prd
     ports:
       - "8086:8086"
+    restart: unless-stopped
+
+  outbox-relay-service:
+    image: "seckill-outbox-relay-service:0.2.0-SNAPSHOT"
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: outbox-relay-service
+    hostname: outbox-relay-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    links:
+      - "postgres:postgres.servicecomb.io"
+      - "kafka:kafka.servicecomb.io"
+    environment:
+      - JAVA_OPTS=-Dspring.profiles.active=prd
+    ports:
+      - "8087:8087"
     restart: unless-stopped
 
   query-service:

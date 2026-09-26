@@ -24,7 +24,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 /**
  * PostgreSQL 表 {@code outbox} 的 Spring Data 仓库。
  * <p>
- * Command 和 Persist 在与事件同一事务里 {@code save} 新行。Command 的 outbox relay
+ * Command 和 Persist 在与事件同一事务里 {@code save} 新行。Outbox Relay 服务
  * 调用 {@link #findTop50ByPublishedFalseOrderByIdAsc()}，发到 Kafka 的 topic
  * {@code seckill.events} 后再把行标成已发布并保存。本接口不读 Redis。
  * <p>

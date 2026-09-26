@@ -16,6 +16,7 @@
     <module>library/seckill-infra-es</module>
     <module>service/seckill-command-service</module>
     <module>service/seckill-persist-service</module>
+    <module>service/seckill-outbox-relay-service</module>
     <module>service/seckill-admin-service</module>
     <module>service/seckill-query-service</module>
     <module>service/seckill-event-service</module>
@@ -55,6 +56,11 @@
       <dependency>
         <groupId>io.servicecomb.poc.demo</groupId>
         <artifactId>seckill-persist-service</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>io.servicecomb.poc.demo</groupId>
+        <artifactId>seckill-outbox-relay-service</artifactId>
         <version>0.2.0-SNAPSHOT</version>
       </dependency>
       <dependency>

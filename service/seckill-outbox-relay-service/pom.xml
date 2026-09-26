@@ -10,7 +10,7 @@
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>seckill-command-service</artifactId>
+  <artifactId>seckill-outbox-relay-service</artifactId>
 
   <dependencies>
     <dependency>
@@ -19,11 +19,7 @@
     </dependency>
     <dependency>
       <groupId>io.servicecomb.poc.demo</groupId>
-      <artifactId>seckill-infra-redis</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.servicecomb.poc.demo</groupId>
-      <artifactId>test-support</artifactId>
+      <artifactId>seckill-infra-kafka</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -67,7 +63,7 @@
             <configuration>
               <outputDirectory>${project.build.directory}/seckill</outputDirectory>
               <classifier>exec</classifier>
-              <mainClass>io.servicecomb.poc.demo.CommandServiceApplication</mainClass>
+              <mainClass>io.servicecomb.poc.demo.OutboxRelayServiceApplication</mainClass>
             </configuration>
           </execution>
         </executions>
@@ -92,5 +88,4 @@
       </build>
     </profile>
   </profiles>
-
 </project>

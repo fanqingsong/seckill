@@ -19,7 +19,7 @@ package io.servicecomb.poc.demo.seckill.kafka;
 /**
  * 把已经提交到 outbox 的事件发到 Kafka。
  * <p>
- * Command 和 Persist 先在数据库事务里写下事件和 outbox，OutboxRelay 再调用本接口。
+ * Command 和 Persist 先在数据库事务里写下事件和 outbox，Outbox Relay 服务再调用本接口。
  * 抢券 HTTP 不调用它。{@code seckill.infra.mode=prod} 时实现是 {@link KafkaSecKillEventPublisher}，
  * 其它值（缺省 {@code memory}）是 {@link InMemoryEventBus}。两种实现都不写 Redis，也不改库存。
  */

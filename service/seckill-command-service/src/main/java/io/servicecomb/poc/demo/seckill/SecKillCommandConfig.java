@@ -4,7 +4,7 @@
  * │ 链路：抢券 · Command 装配                       │
  * └─────────────────────────────────────────────────┘
  *
- * 【本文件】装入 Redis、Kafka，并启动引导器
+ * 【本文件】装入 Redis，并启动引导器
  * │
  * ├─ publishTime ─▼ 初始化 Redis + PromotionStartEvent
  * └─ 抢券 Bean ─▼ 热路径只走 Redis Lua
@@ -15,7 +15,6 @@
 package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
-import io.servicecomb.poc.demo.seckill.kafka.SecKillKafkaConfig;
 import io.servicecomb.poc.demo.seckill.redis.SecKillRedisConfig;
 import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
@@ -26,18 +25,19 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 /**
- * 把 Command 服务要用的 Redis、Kafka 和本进程自己的对象装进 Spring 容器。
+ * 把 Command 服务要用的 Redis 和本进程自己的对象装进 Spring 容器。
  * <p>
  * {@code @Configuration} 表示这个类只用来声明 Bean，不处理 HTTP。{@code @Import} 把库模块里的
- * Redis、Kafka 配置一并加载，容器里才会有 {@link SecKillStore} 和事件发布器。测试默认
+ * Redis 配置加载进来，容器里才会有 {@link SecKillStore}。outbox 发到 Kafka 由独立的 Relay 服务负责。
+ * 测试默认
  * {@code seckill.infra.mode=memory}，库配置装配内存实现。Spring 的 {@code prd} 档会把该配置写成 {@code prod}，这时才连接 Docker Compose 里的主机。
- * 具体配置键写在被导入的那两个配置类里。
+ * 具体配置键写在 {@link SecKillRedisConfig} 里。
  * <p>
  * 方法参数同样是构造器注入的一种形式：Spring 调用 {@code @Bean} 方法时，按类型把已经创建好的对象传进来。
  * 抢券成功仍然只落在 Redis；{@code PromotionStartEvent} 到 {@code publishTime} 才写入 PostgreSQL。
  */
 @Configuration
-@Import({SecKillRedisConfig.class, SecKillKafkaConfig.class})
+@Import({SecKillRedisConfig.class})
 class SecKillCommandConfig {
 
   /**

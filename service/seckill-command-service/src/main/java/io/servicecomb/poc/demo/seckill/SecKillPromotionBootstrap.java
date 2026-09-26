@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * {@link SecKillCommandConfig} 创建本类后立刻调用 {@link #run()}。本类不接收 HTTP。
  * 活动行由 Admin 事先写入 PostgreSQL；这里只是读出来。时间未到不初始化库存。
  * 时间到了且 Redis 还没有库存键时，按事件表恢复；若事件表也是空的，再写入
- * {@code PromotionStartEvent} 和 outbox。Kafka 不在这里发，交给 {@link OutboxRelay}。
+ * {@code PromotionStartEvent} 和 outbox。Kafka 不在这里发，交给 Outbox Relay 服务。
  * <p>
  * 类名后面的 {@code <T>} 是顾客编号的泛型。配置类里实际传入的是 {@code String}。
  */

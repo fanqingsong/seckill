@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>
  * {@code @Component} 让 Spring 创建本对象。构造器参数是构造器注入：仓库和事件格式由容器传入。
  * 活动开始、按时间结束走这里。抢券成功的 {@code CouponGrabbedEvent} 由 Persist 服务写入，
- * 不经过本类。本类不访问 Redis。事务提交之后，{@link OutboxRelay} 才把 outbox 发到 Kafka。
+ * 不经过本类。本类不访问 Redis。事务提交之后，Outbox Relay 服务才把 outbox 发到 Kafka。
  * <p>
  * {@code @Transactional} 标在 {@link #persist} 上。别的 Bean 调用这个方法时，Spring 先开一个
  * 数据库事务，两条 {@code save} 都成功才提交；任一抛异常则事件行和 outbox 行一起回滚。

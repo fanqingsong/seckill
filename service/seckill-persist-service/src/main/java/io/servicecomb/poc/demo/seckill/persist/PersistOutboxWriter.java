@@ -10,7 +10,7 @@
  * 【本文件】同一事务写入事件行和 outbox
  * │
  * ▼
- * 提交之后由 Command 的 relay 发 Kafka（本文件不发）
+ * 提交之后由 Relay 服务发 Kafka（本文件不发）
  *
  * 一句话：事件和待发消息一起提交，避免只留下一半。
  */
@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>
  * {@code @Component} 表示 Spring 创建本对象。构造器参数是构造器注入。
  * 调用方是 {@link GrabPersistWorker}：它从 Redis 抢券流取出令牌后调用 {@link #persist}。
- * 本类不读 Redis，也不发 Kafka。outbox 行提交之后，由 Command 服务的 relay 发到
+ * 本类不读 Redis，也不发 Kafka。outbox 行提交之后，由 Outbox Relay 服务发到
  * topic {@code seckill.events}。
  * <p>
  * {@code @Transactional} 的含义：别的 Bean 调用 {@link #persist} 时，Spring 先开事务。

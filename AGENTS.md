@@ -109,6 +109,7 @@ public class SecKillCommandService<T> {
 | `service/seckill-admin-service` | 8081 | 创建和修改活动，写入 PostgreSQL。此时 Redis 里还没有库存 |
 | `service/seckill-command-service` | 8082 | 到 `publishTime` 初始化 Redis；抢券只走 Redis Lua；活动开始/结束事件与 outbox |
 | `service/seckill-persist-service` | 8086 | 消费 Redis 抢券队列，在同一事务里写事件和 outbox |
+| `service/seckill-outbox-relay-service` | 8087 | outbox CDC（PostgreSQL NOTIFY）+ 轮询兜底，发 Kafka `seckill.events` |
 | `service/seckill-event-service` | 8084 | 消费 Kafka `seckill.events`，投影到 Redis 读模型和 Elasticsearch；提供回放 |
 | `service/seckill-query-service` | 8083 | 列表和「我的券」读 Redis。搜索才读 Elasticsearch |
 | `service/seckill-gateway` | 8085 | 按路径转发，限流，熔断。不写业务数据 |
@@ -121,7 +122,7 @@ public class SecKillCommandService<T> {
 三条用户操作不要混线：
 
 1. **创建活动**：Admin → PostgreSQL。Command 里的定时任务等到 `publishTime` 才初始化 Redis，并记下 `PromotionStartEvent`。
-2. **抢券**：Command → Redis。HTTP 成功只表示库存已扣。随后 Persist 写 PostgreSQL，outbox 再经 Kafka 到 Event，Query 才能读到。
+2. **抢券**：Command → Redis。HTTP 成功只表示库存已扣。随后 Persist 写 PostgreSQL，Outbox Relay 把 outbox 发到 Kafka，Event 投影后 Query 才能读到。
 3. **查询**：Query → Redis（搜索接口才到 Elasticsearch）。刚抢成功时查询页暂时没有券，是正常延迟。
 
 三种事件：`PromotionStartEvent`（库存已初始化）、`CouponGrabbedEvent`（某人抢到）、`PromotionFinishEvent`（卖完，或到结束时间且抢券队列已空）。

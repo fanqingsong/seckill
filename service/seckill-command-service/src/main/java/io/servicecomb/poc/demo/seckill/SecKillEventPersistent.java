@@ -39,7 +39,7 @@ import io.servicecomb.poc.demo.seckill.event.SecKillEvent;
  * 把一条秒杀事件追加进 PostgreSQL 的入口。
  * <p>
  * 当前实现是 {@link TransactionalEventOutboxWriter}：同一次数据库事务里写事件表和 outbox 表。
- * 本接口不访问 Redis，也不直接发 Kafka。Kafka 由 {@link OutboxRelay} 在事务提交之后投递。
+ * 本接口不访问 Redis，也不直接发 Kafka。Kafka 由 Outbox Relay 服务在事务提交之后投递。
  * <p>
  * 抢券 HTTP 成功只表示 Redis 已扣减，不会通过本接口立刻写出 {@code CouponGrabbedEvent}。
  * 那条事件由 Persist 服务消费 Redis 抢券流后再写。
