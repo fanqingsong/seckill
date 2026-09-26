@@ -50,15 +50,20 @@ public class ReplayController {
    * 从指定序号起重放一场活动的事件。
    * <p>
    * {@code @RequestParam} 表示参数来自查询字符串，例如 {@code ?promotionId=...&fromSeq=0}。
-   * {@code defaultValue = "0"} 表示没传 {@code fromSeq} 时从 0 开始。本方法不写新的业务事件，只触发投影。
+   * {@code defaultValue = "0"} 表示没传 {@code fromSeq} 时从 0 开始（全量重建读模型）。
+   * {@code incremental=true} 时从 Redis 与 PostgreSQL checkpoint 的较大值加 1 起播，适合读模型仍在、只需补尾巴。
+   * 本方法不写新的业务事件，只触发投影。
    *
    * @param promotionId 要重放的活动编号
-   * @param fromSeq 起始序号，包含这一条
+   * @param fromSeq 起始序号，包含这一条；与 {@code incremental} 同时传时以 {@code fromSeq} 为准
+   * @param incremental 为 true 且未显式关心 fromSeq 时，用增量起点代替 0
    * @return 固定正文 {@code replayed}，表示方法已返回；投影写入的是 Redis 和 Elasticsearch
    */
   @PostMapping("/replay")
-  public String replay(@RequestParam String promotionId, @RequestParam(defaultValue = "0") long fromSeq) {
-    projector.replay(promotionId, fromSeq);
+  public String replay(@RequestParam String promotionId, @RequestParam(defaultValue = "0") long fromSeq,
+      @RequestParam(defaultValue = "false") boolean incremental) {
+    long startSeq = projector.resolveReplayStartSeq(promotionId, fromSeq, incremental);
+    projector.replay(promotionId, startSeq);
     return "replayed";
   }
 }

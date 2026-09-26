@@ -19,6 +19,7 @@ package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
  * Event 服务的进程入口。它消费 Kafka（或测试里的内存总线），把事件投影到 Redis 读模型和 Elasticsearch。
@@ -31,6 +32,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Query 服务才能从 Redis 或搜索索引里看见结果。
  */
 @SpringBootApplication
+@EnableTransactionManagement
 public class EventServiceApplication {
 
   /**

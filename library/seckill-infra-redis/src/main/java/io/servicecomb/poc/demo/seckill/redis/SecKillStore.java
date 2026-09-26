@@ -207,6 +207,17 @@ public interface SecKillStore {
   void setAppliedSeq(String promotionId, long seq);
 
   /**
+   * 判断 Redis 里是否还留有该活动的读模型痕迹（进行中活动、序号键或至少一张券）。
+   * <p>
+   * Event 服务启动时用：只有为真时才允许用 PostgreSQL checkpoint 把 {@link #appliedSeq} 往前补，
+   * 避免读模型已空却误以为投影已完成。
+   *
+   * @param promotionId 活动编号
+   * @return 读模型似乎仍在 Redis 时为 true
+   */
+  boolean hasReadModelForPromotion(String promotionId);
+
+  /**
    * 把一条暂时还不能投影的事件放进该活动的缓冲区。
    * <p>
    * 序号跳过了下一号（中间有缺口）时，Event 服务先放这里，等缺的序号补上再取出。

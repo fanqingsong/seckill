@@ -38,8 +38,10 @@ import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.StreamEntryID;
 import redis.clients.jedis.exceptions.JedisDataException;
 import redis.clients.jedis.exceptions.JedisNoScriptException;
+import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.params.XAutoClaimParams;
 import redis.clients.jedis.params.XReadGroupParams;
+import redis.clients.jedis.resps.ScanResult;
 import redis.clients.jedis.resps.StreamEntry;
 import redis.clients.jedis.resps.StreamGroupInfo;
 
@@ -649,6 +651,37 @@ public class JedisSecKillStore implements SecKillStore {
     Jedis jedis = pool.getResource();
     try {
       jedis.set("seckill:applied_seq:" + promotionId, String.valueOf(seq));
+    } finally {
+      jedis.close();
+    }
+  }
+
+  /**
+   * 判断该活动是否仍有读模型键：进行中哈希、applied_seq 键，或至少一张券 string。
+   *
+   * @param promotionId 活动编号
+   * @return 任一条件满足则为 true
+   */
+  @Override
+  public boolean hasReadModelForPromotion(String promotionId) {
+    Jedis jedis = pool.getResource();
+    try {
+      if (jedis.hexists("seckill:active_promotions", promotionId)) {
+        return true;
+      }
+      if (jedis.exists("seckill:applied_seq:" + promotionId)) {
+        return true;
+      }
+      ScanParams params = new ScanParams().match("seckill:coupon:" + promotionId + ":*").count(8);
+      String cursor = ScanParams.SCAN_POINTER_START;
+      do {
+        ScanResult<String> scan = jedis.scan(cursor, params);
+        cursor = scan.getCursor();
+        if (!scan.getResult().isEmpty()) {
+          return true;
+        }
+      } while (!ScanParams.SCAN_POINTER_START.equals(cursor));
+      return false;
     } finally {
       jedis.close();
     }

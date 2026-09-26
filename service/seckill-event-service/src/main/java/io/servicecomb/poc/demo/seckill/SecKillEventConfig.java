@@ -62,11 +62,11 @@ public class SecKillEventConfig {
    */
   @Bean
   EventProjector eventProjector(SecKillEventFormat eventFormat, SecKillStore store, SecKillSearchIndex searchIndex,
-      SpringSecKillEventRepository eventRepository,
+      SpringSecKillEventRepository eventRepository, ProjectionCheckpointService checkpointService,
       @Value("${seckill.infra.mode:memory}") String mode,
       @Value("${seckill.kafka.bootstrap:127.0.0.1:9092}") String bootstrap,
       SecKillEventPublisher publisher) {
-    EventProjector projector = new EventProjector(eventFormat, store, searchIndex, eventRepository);
+    EventProjector projector = new EventProjector(eventFormat, store, searchIndex, eventRepository, checkpointService);
     // 配置写成 prod：单独起一个线程，从 Kafka topic 拉消息再投影。
     if ("prod".equals(mode)) {
       KafkaSecKillEventConsumer consumer = new KafkaSecKillEventConsumer(bootstrap, projector, publisher);

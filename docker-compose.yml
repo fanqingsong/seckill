@@ -17,6 +17,9 @@ services:
   redis:
     image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:7-alpine"
     hostname: redis
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis-data:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -60,6 +63,8 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
 
@@ -218,3 +223,7 @@ services:
     depends_on:
       - gateway-service
     restart: unless-stopped
+
+volumes:
+  redis-data:
+  es-data:

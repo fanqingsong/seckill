@@ -25,9 +25,9 @@ Docker Compose also starts supporting infrastructure (not called by the browser)
 | Infra | Port | Role |
 |-------|------|------|
 | PostgreSQL | 5432 | Write-side promotions, append-only events, transactional outbox |
-| Redis | 6379 | Lua stock/claim hot path, Query read model, **and** Gateway token-bucket rate limit in `prd` |
+| Redis | 6379 | Lua stock/claim hot path, Query read model, **and** Gateway token-bucket rate limit in `prd`. Compose enables **AOF** and a **`redis-data` volume** |
 | Kafka | 9092 | KRaft `seckill.events` (key = `promotionId`) and DLT `seckill.events.dlt` |
-| Elasticsearch | 9200 | Search/stats projection; existing Query GETs still use Redis |
+| Elasticsearch | 9200 | Search/stats projection; existing Query GETs still use Redis. Compose mounts **`es-data`** |
 
 Kafka runs in **KRaft** mode (`apache/kafka`, combined broker + controller). There is no ZooKeeper.
 
@@ -163,7 +163,7 @@ sequenceDiagram
 | `CouponGrabbedEvent` | Lua claim plus queue; worker persists; unique `(promotionId, customerId)` | Redis coupon + ES coupon doc `id=pid:customerId` |
 | `PromotionFinishEvent` | Stock 0 after last persist, or finishTime once the grab queue is empty | Remove Redis promotion; ES finished flag |
 
-Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP `200` means Redis has claimed the coupon; Query lags until the worker and outbox catch up. Unpersisted grab tokens live in Redis stream `seckill:grabs` (consumer group `persist`) and need Redis durability across restarts. If Redis is empty, Command rebuilds stock from the event table. Kafka key is `promotionId` so one promotion is ordered; the projector still buffers `seq` gaps and can `POST /admin/replay?promotionId=&fromSeq=` from PostgreSQL. Failed projections go to `seckill.events.dlt`. The consumer commits a poll batch only for records already projected or copied to the dead-letter topic, so a crash mid-batch redelivers the rest.
+Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP `200` means Redis has claimed the coupon; Query lags until the worker and outbox catch up. Unpersisted grab tokens live in Redis stream `seckill:grabs` (consumer group `persist`) and need Redis durability across restarts. If Redis is empty, Command rebuilds stock from the event table. Kafka key is `promotionId` so one promotion is ordered; the projector still buffers `seq` gaps and can replay from PostgreSQL (`POST /admin/replay?promotionId=&fromSeq=0` for a full rebuild, or `&incremental=true` to continue after the Redis/PostgreSQL checkpoint when the read model is still present). Event Service also writes **`projection_checkpoint`** in PostgreSQL (mirror of `seckill:applied_seq`) and on startup may align Redis sequence keys after AOF recovery. Failed projections go to `seckill.events.dlt`. The consumer commits a poll batch only for records already projected or copied to the dead-letter topic, so a crash mid-batch redelivers the rest.
 
 ![Event sourcing overview](https://github.com/ServiceComb/seckill/blob/master/etc/EventSourcing.png)
 
@@ -196,7 +196,7 @@ Paths below work through the frontend (`http://localhost:8080/...`) except repla
 | `GET` | `/query/promotions` | Query | Active promotions from Redis (no trailing slash) |
 | `GET` | `/query/coupons/{customerId}` | Query | Coupons from Redis |
 | `GET` | `/query/coupons/search?customerId=&promotionId=` | Query | Elasticsearch (empty list if the index is missing) |
-| `POST` | `/admin/replay?promotionId=&fromSeq=0` | Event `:8084` | Rebuild Redis/ES from PostgreSQL events |
+| `POST` | `/admin/replay?promotionId=&fromSeq=0&incremental=false` | Event `:8084` | Rebuild Redis/ES from PostgreSQL events; `incremental=true` skips already-projected seq (see checkpoint) |
 
 ## Where to review the code
 

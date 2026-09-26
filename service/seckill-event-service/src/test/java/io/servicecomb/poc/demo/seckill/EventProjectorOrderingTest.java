@@ -55,8 +55,9 @@ public class EventProjectorOrderingTest {
     SpringSecKillEventRepository repository = mock(SpringSecKillEventRepository.class);
     when(repository.findByPromotionIdAndSeqGreaterThanEqualOrderBySeqAsc(anyString(), anyLong()))
         .thenReturn(Collections.<io.servicecomb.poc.demo.seckill.entities.EventEntity>emptyList());
+    ProjectionCheckpointService checkpointService = mock(ProjectionCheckpointService.class);
     EventProjector projector = new EventProjector(new SecKillEventFormat(new JacksonGeneralFormat()), store,
-        new InMemorySearchIndex(), repository);
+        new InMemorySearchIndex(), repository, checkpointService);
     PromotionEntity promotion = new PromotionEntity(new Date(), 5, 0.8f);
     SecKillEventFormat format = new SecKillEventFormat(new JacksonGeneralFormat());
 
@@ -82,8 +83,9 @@ public class EventProjectorOrderingTest {
   public void skipsMissingSeqWhenEventTableHasLaterRow() {
     InMemorySecKillStore store = new InMemorySecKillStore();
     SpringSecKillEventRepository repository = mock(SpringSecKillEventRepository.class);
+    ProjectionCheckpointService checkpointService = mock(ProjectionCheckpointService.class);
     EventProjector projector = new EventProjector(new SecKillEventFormat(new JacksonGeneralFormat()), store,
-        new InMemorySearchIndex(), repository);
+        new InMemorySearchIndex(), repository, checkpointService);
     PromotionEntity promotion = new PromotionEntity(new Date(), 5, 0.8f);
     SecKillEventFormat format = new SecKillEventFormat(new JacksonGeneralFormat());
     EventMessageDto fifth = format.toMessage(new CouponGrabbedEvent<String>(promotion, "c"),

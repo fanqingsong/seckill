@@ -54,19 +54,22 @@ public class EventProjector implements SecKillEventListener {
   private final SecKillStore store;
   private final SecKillSearchIndex searchIndex;
   private final SpringSecKillEventRepository eventRepository;
+  private final ProjectionCheckpointService checkpointService;
 
   /**
    * @param eventFormat 消息与具体事件类型之间的转换
    * @param store Redis 读模型，也保存已投影序号和乱序缓冲
    * @param searchIndex Elasticsearch，活动和券都会写入
    * @param eventRepository 补洞和回放时读取的 PostgreSQL 事件表，本类不往事件表插入新行
+   * @param checkpointService 把已投影序号备份到 PostgreSQL，供 Redis 恢复与增量回放
    */
   public EventProjector(SecKillEventFormat eventFormat, SecKillStore store, SecKillSearchIndex searchIndex,
-      SpringSecKillEventRepository eventRepository) {
+      SpringSecKillEventRepository eventRepository, ProjectionCheckpointService checkpointService) {
     this.eventFormat = eventFormat;
     this.store = store;
     this.searchIndex = searchIndex;
     this.eventRepository = eventRepository;
+    this.checkpointService = checkpointService;
   }
 
   /**
@@ -163,7 +166,40 @@ public class EventProjector implements SecKillEventListener {
     apply(message);
     if (message.getSeq() != 0) {
       store.setAppliedSeq(message.getPromotionId(), message.getSeq());
+      checkpointService.recordAppliedSeq(message.getPromotionId(), message.getSeq());
     }
+  }
+
+  /**
+   * 计算增量回放的起始序号：在 Redis 序号与 PostgreSQL checkpoint 中取较大值再加 1。
+   * <p>
+   * 仅当读模型仍在 Redis 里时使用；读模型已空时应从 0 全量回放。
+   *
+   * @param promotionId 活动编号
+   * @return 下一条尚未投影的事件序号
+   */
+  public long incrementalReplayFromSeq(String promotionId) {
+    long redisApplied = store.appliedSeq(promotionId);
+    long pgApplied = checkpointService.lastAppliedSeq(promotionId);
+    return Math.max(redisApplied, pgApplied) + 1;
+  }
+
+  /**
+   * 决定回放起点：显式 {@code fromSeq} 优先；{@code incremental} 且读模型仍在时从 checkpoint 之后续播，否则从 0 全量。
+   *
+   * @param promotionId 活动编号
+   * @param fromSeq 调用方传入的起始序号
+   * @param incremental 是否尝试增量回放
+   * @return 交给 {@link #replay} 的起始序号（含）
+   */
+  public long resolveReplayStartSeq(String promotionId, long fromSeq, boolean incremental) {
+    if (!incremental || fromSeq != 0) {
+      return fromSeq;
+    }
+    if (!store.hasReadModelForPromotion(promotionId)) {
+      return 0L;
+    }
+    return incrementalReplayFromSeq(promotionId);
   }
 
   /**

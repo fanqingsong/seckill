@@ -383,6 +383,30 @@ public class InMemorySecKillStore implements SecKillStore {
   }
 
   /**
+   * 内存读模型里是否还有该活动的活动行、序号或券。
+   *
+   * @param promotionId 活动编号
+   * @return 有则 true
+   */
+  @Override
+  public boolean hasReadModelForPromotion(String promotionId) {
+    if (promotions.containsKey(promotionId)) {
+      return true;
+    }
+    AtomicLong seq = applied.get(promotionId);
+    if (seq != null && seq.get() > 0) {
+      return true;
+    }
+    String prefix = promotionId + ":";
+    for (String key : couponsByKey.keySet()) {
+      if (key.startsWith(prefix)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * 把跳号的事件追加到该活动的缓冲区末尾。
    *
    * @param event 还不能按序投影的消息
