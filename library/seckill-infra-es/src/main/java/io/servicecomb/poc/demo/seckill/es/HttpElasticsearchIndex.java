@@ -16,7 +16,7 @@
 
 package io.servicecomb.poc.demo.seckill.es;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.servicecomb.poc.demo.seckill.entities.CouponEntity;
 import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
 import java.io.InputStream;
@@ -42,7 +42,7 @@ public class HttpElasticsearchIndex implements SecKillSearchIndex {
   private static final Logger logger = LoggerFactory.getLogger(HttpElasticsearchIndex.class);
   /** Elasticsearch 根地址，例如 {@code http://127.0.0.1:9200}，末尾不保留斜杠。 */
   private final String baseUrl;
-  private final ObjectMapper mapper = new ObjectMapper();
+  private final JsonMapper mapper = JsonMapper.builder().build();
 
   /**
    * @param baseUrl {@code seckill.es.url}。若以 {@code /} 结尾，这里去掉，避免和后面的路径拼出双斜杠

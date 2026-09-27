@@ -127,13 +127,15 @@ public class SecKillAdminRestController {
    * 修改尚未开始的活动。已经出现 {@code PromotionStartEvent} 时拒绝修改。
    * <p>
    * {@code @PathVariable} 表示路径里的 {@code {promotionId}} 填进参数。完整路径是
-   * {@code PUT /admin/promotions/{promotionId}}。仍然只更新 PostgreSQL 活动行，不改 Redis。
+   * {@code PUT /admin/promotions/{promotionId}} 或末尾带斜杠。Spring Boot 4 / Spring MVC 7
+   * 不再把两种写法当成同一条路径，所以这里两个模板都登记，契约才和 Boot 3 时一致。仍然只更新
+   * PostgreSQL 活动行，不改 Redis。
    *
    * @param promotionId 要修改的活动编号，空字符串视为非法
    * @param promotionDto 新的时间、券数量和折扣
    * @return 正文仍是原来的 promotionId
    */
-  @RequestMapping(method = RequestMethod.PUT, value = "/{promotionId}")
+  @RequestMapping(method = RequestMethod.PUT, value = {"/{promotionId}", "/{promotionId}/"})
   public ResponseEntity<String> modify(@PathVariable String promotionId,
       @RequestBody PromotionDto promotionDto) {
     // 编号非空且新字段合法，才去查库。

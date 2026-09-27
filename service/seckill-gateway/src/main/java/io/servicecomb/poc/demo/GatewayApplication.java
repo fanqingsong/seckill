@@ -35,10 +35,10 @@ package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
-import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration;
-import org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisRepositoriesAutoConfiguration;
 
 import io.servicecomb.poc.demo.seckill.gateway.SecKillGatewayProperties;
 
@@ -48,6 +48,8 @@ import io.servicecomb.poc.demo.seckill.gateway.SecKillGatewayProperties;
  * {@code @SpringBootApplication} 从本类所在包扫描组件并启动 HTTP（本服务端口 8085）。
  * {@code exclude} 关掉 Redis 自动配置：默认限流在内存里，不需要一启动就连 Redis。
  * 只有 {@code seckill.gateway.rate-limiter=redis} 时，限流配置类才自己创建连接。
+ * Spring Boot 4.1 里这三类自动配置在 {@code org.springframework.boot.data.redis.autoconfigure}，
+ * 类名带 {@code Data} 前缀。
  * {@code @EnableConfigurationProperties} 注册 {@link SecKillGatewayProperties}，
  * {@code seckill.gateway.*} 才会绑定到那个对象。
  * <p>
@@ -55,9 +57,9 @@ import io.servicecomb.poc.demo.seckill.gateway.SecKillGatewayProperties;
  * 再由路由转到 8081、8082、8083。回放接口不从这条代理进来。
  */
 @SpringBootApplication(exclude = {
-    RedisAutoConfiguration.class,
-    RedisReactiveAutoConfiguration.class,
-    RedisRepositoriesAutoConfiguration.class
+    DataRedisAutoConfiguration.class,
+    DataRedisReactiveAutoConfiguration.class,
+    DataRedisRepositoriesAutoConfiguration.class
 })
 @EnableConfigurationProperties(SecKillGatewayProperties.class)
 public class GatewayApplication {

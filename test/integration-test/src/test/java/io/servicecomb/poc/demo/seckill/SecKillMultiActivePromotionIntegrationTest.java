@@ -44,7 +44,7 @@ import java.util.Date;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -54,9 +54,6 @@ import org.springframework.test.web.servlet.MvcResult;
 import io.servicecomb.poc.demo.seckill.dto.CouponDto;
 import io.servicecomb.poc.demo.seckill.dto.PromotionDto;
 import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
-import io.servicecomb.poc.demo.seckill.repositories.spring.SpringCouponRepository;
-import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
-import io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRepository;
 
 /**
  * 守护同时有两场进行中的活动：同一顾客可以各抢一张，查询结果里两场都在。
@@ -74,15 +71,6 @@ public class SecKillMultiActivePromotionIntegrationTest {
 
   @Autowired
   private MockMvc mockMvc;
-
-  @Autowired
-  private SpringPromotionRepository promotionRepository;
-
-  @Autowired
-  private SpringSecKillEventRepository eventRepository;
-
-  @Autowired
-  private SpringCouponRepository couponRepository;
 
   /**
    * 前置：没有先清空仓库，两场活动的开始时间都是现在。

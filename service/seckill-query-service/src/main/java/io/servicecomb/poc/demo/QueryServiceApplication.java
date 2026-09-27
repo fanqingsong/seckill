@@ -35,23 +35,26 @@ package io.servicecomb.poc.demo;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration;
+import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 
 /**
  * Query 服务的进程入口。列表和「我的券」读 Redis，搜索读 Elasticsearch，不连接 PostgreSQL。
  * <p>
  * {@code @SpringBootApplication} 让 Spring 从本类所在的包往下扫描并启动 HTTP（本服务端口 8083）。
- * {@code exclude} 关掉数据源、JPA 和仓库的自动配置：本进程没有数据库。若不去掉，启动时会因为找不到
- * 数据源而失败。浏览器只访问前端 nginx；Gateway 把 {@code /query} 转到这里。
+ * {@code exclude} 关掉数据源、JPA 和仓库的自动配置：本进程没有数据库。Query 依赖
+ * {@code seckill-event-store}，会把 JPA 带到 classpath；若不排除，启动时会因为找不到
+ * 数据源而失败。Spring Boot 4.1 把这些类拆到独立模块（包名不再是
+ * {@code org.springframework.boot.autoconfigure.jdbc}）。浏览器只访问前端 nginx；Gateway
+ * 把 {@code /query} 转到这里。
  * <p>
  * 抢券成功后查询页暂时没有券，是因为读模型还没被 Event 服务投影，不是本进程漏查。
  */
 @SpringBootApplication(exclude = {
     DataSourceAutoConfiguration.class,
     HibernateJpaAutoConfiguration.class,
-    JpaRepositoriesAutoConfiguration.class
+    DataJpaRepositoriesAutoConfiguration.class
 })
 public class QueryServiceApplication {
 

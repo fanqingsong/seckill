@@ -23,7 +23,6 @@ import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,7 +33,6 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 /**
  * {@link SecKillStore} 的进程内实现，给 {@code seckill.infra.mode} 不是 {@code prod} 时使用（缺省 {@code memory}）。
@@ -129,28 +127,6 @@ public class InMemorySecKillStore implements SecKillStore {
       long left = remaining - 1;
       pendingGrabs.offer(new GrabToken(promotionId, customerId, seq, left));
       return new GrabAttempt(GrabAttempt.SUCCESS, seq, left);
-    }
-  }
-
-  /**
-   * 把库存加 1，并尝试把顾客从已抢集合去掉。
-   * <p>
-   * 不碰抢券队列。库存键不存在或集合不存在时跳过对应的那一步。
-   *
-   * @param promotionId 活动编号
-   * @param customerId 要撤销的顾客
-   */
-  @Override
-  public void compensateGrab(String promotionId, String customerId) {
-    synchronized (lock(promotionId)) {
-      AtomicLong stock = stocks.get(promotionId);
-      if (stock != null) {
-        stock.incrementAndGet();
-      }
-      Set<String> set = claimed.get(promotionId);
-      if (set != null) {
-        set.remove(customerId);
-      }
     }
   }
 
@@ -296,31 +272,6 @@ public class InMemorySecKillStore implements SecKillStore {
   }
 
   /**
-   * 取出券 id 大于 {@code latestId} 的读模型，并按 id 从小到大排序。
-   * <p>
-   * 对应 Jedis 对有序集合 {@code seckill:coupons_by_id} 的按分数范围读取，且不包含等于 {@code latestId} 的成员。
-   *
-   * @param latestId 调用方已经见过的最大券编号
-   * @return 更新的券
-   */
-  @Override
-  public Collection<CouponEntity<String>> couponsAfter(int latestId) {
-    List<CouponEntity<String>> result = new ArrayList<CouponEntity<String>>();
-    for (CouponEntity<String> coupon : couponsByKey.values()) {
-      if (coupon.getId() > latestId) {
-        result.add(coupon);
-      }
-    }
-    Collections.sort(result, new Comparator<CouponEntity<String>>() {
-      @Override
-      public int compare(CouponEntity<String> left, CouponEntity<String> right) {
-        return Integer.compare(left.getId(), right.getId());
-      }
-    });
-    return result;
-  }
-
-  /**
    * 按活动编号放入或覆盖进行中的活动。投影 {@code PromotionStartEvent} 时由 Event 服务调用。
    *
    * @param promotion 活动实体，键用它的 promotionId
@@ -433,24 +384,6 @@ public class InMemorySecKillStore implements SecKillStore {
     List<EventMessageDto> copy = new ArrayList<EventMessageDto>(list);
     list.clear();
     return copy;
-  }
-
-  /**
-   * 在券读模型里按顾客过滤，再按活动编号过滤，包装成事件消息。
-   * <p>
-   * 查询页搜索走 Elasticsearch，不调用本方法。这里的消息类型固定为 {@code CouponGrabbedEvent}，
-   * 正文固定是空 JSON 对象 {@code "{}"}，不是券实体本身。
-   *
-   * @param customerId 顾客编号。null 会按空串去比较
-   * @param promotionId 活动编号。null 或空串表示该顾客的全部券
-   * @return 过滤后的消息列表
-   */
-  @Override
-  public List<EventMessageDto> searchCoupons(String customerId, String promotionId) {
-    return customerCoupons(customerId == null ? "" : customerId).stream()
-        .filter(coupon -> promotionId == null || promotionId.isEmpty() || promotionId.equals(coupon.getPromotionId()))
-        .map(coupon -> new EventMessageDto("CouponGrabbedEvent", coupon.getPromotionId(), "{}"))
-        .collect(Collectors.toList());
   }
 
   /**

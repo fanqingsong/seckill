@@ -26,43 +26,26 @@
  *   【本文件】折扣、顾客、抢到时间
  *      │
  *      ▼
- *   事件 content，随后供投影读取
+ *   事件 content，随后投影到 Redis / Elasticsearch
  *
- * 一句话：券先作为事件正文落库，查询页不扫这张表。
+ * 一句话：券是事件正文和读模型对象，不是 PostgreSQL 券表。
  */
 
 package io.servicecomb.poc.demo.seckill.entities;
-
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 
 /**
  * 一张已经抢到的券。它同时是 {@code CouponGrabbedEvent} 的正文，以及查询侧的读模型对象。
  * <p>
  * Persist 服务把本对象序列化进事件表的 {@code content}，并写入 outbox。Event 服务消费
  * Kafka 后，把券放进 Redis（查询页读这里），并索引到 Elasticsearch（搜索才读）。
- * 抢券 HTTP 线程不创建数据库里的券行。类名后的 {@code <T>} 是泛型：顾客编号的具体类型
- * 由调用方决定，本类不关心它是字符串还是别的类型；现有查询链路使用 {@code String}。
- * <p>
- * {@code @Entity} 表示 JPA 也会把它映射成一张表（默认表名取类名）。运行中的「我的券」
- * 不靠扫这张表，而靠 Redis。{@code @Id} 与 {@code @GeneratedValue(IDENTITY)} 表示
- * 主键交给数据库自增；投影到 Redis 时，存储实现会另设一个递增 id 再 {@link #setId(int)}。
- * {@code @JdbcTypeCode(SqlTypes.VARCHAR)} 把泛型字段按字符串列保存，避免 JPA 无法决定
- * {@code T} 的 SQL 类型。
+ * 抢券 HTTP 线程不创建数据库里的券行。本类不是 JPA 实体：PostgreSQL 不维护一张券表。
+ * 类名后的 {@code <T>} 是泛型：顾客编号的具体类型由调用方决定；现有查询链路使用 {@code String}。
  *
  * @param <T> 顾客编号的类型
  */
-@Entity
 public class CouponEntity<T> {
 
-  /** 券的编号。JPA 插入时由数据库生成；写入 Redis 时由存储实现赋值。 */
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  /** 券的编号。写入 Redis 读模型时由存储实现赋值，不是数据库自增主键。 */
   private int id;
 
   /** 这张券属于哪一场活动。 */
@@ -74,12 +57,11 @@ public class CouponEntity<T> {
   /** 折扣，与活动上的折扣一致，例如 0.7 表示七折。 */
   private float discount;
 
-  /** 抢到这张券的顾客。按 VARCHAR 存储，查询时再还原成 {@code T}。 */
-  @JdbcTypeCode(SqlTypes.VARCHAR)
+  /** 抢到这张券的顾客。 */
   private T customerId;
 
   /**
-   * JPA 和 JSON 反序列化用的无参构造器。业务代码构造一张新券时用下面的全参构造器。
+   * JSON 反序列化用的无参构造器。业务代码构造一张新券时用下面的全参构造器。
    */
   public CouponEntity() {
   }

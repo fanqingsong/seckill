@@ -2,7 +2,7 @@
 
 Folder: [`service/seckill-command-service/`](./). Shared Lua/outbox types live in [`library/seckill-infra-redis/`](../../library/seckill-infra-redis/) and [`library/seckill-event-store/`](../../library/seckill-event-store/). Full map: [root README — Where to review](../../README.md#where-to-review-the-code).
 
-HTTP is Spring MVC (Spring Boot 3). Sold out / duplicate grab returns **HTTP 429** with a plain-text body.
+HTTP is Spring MVC (Spring Boot 4). Sold out / duplicate grab returns **HTTP 429** with a plain-text body.
 
 * `SecKillCommandRestController`  
   Accepts `POST /command/coupons/` (`promotionId`, `customerId`). `200` means Redis has claimed the coupon, not that PostgreSQL has the event yet.

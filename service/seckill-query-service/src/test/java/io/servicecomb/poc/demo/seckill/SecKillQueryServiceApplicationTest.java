@@ -32,7 +32,7 @@ import java.util.Date;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,6 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * <p>
  * 数据直接写进 {@link SecKillStore}，再由 MockMvc 请求 {@code /query/promotions} 和 {@code /query/coupons/}。
  * {@code @AutoConfigureMockMvc} 会准备好发 HTTP 的 {@link MockMvc}，并不真的打开端口。
+ * Spring Boot 4.1 起这个注解在 {@code org.springframework.boot.webmvc.test.autoconfigure}。
  * 本文件没有搜索请求，也没有出现 Kafka、Elasticsearch 或 H2。
  */
 @RunWith(SpringRunner.class)

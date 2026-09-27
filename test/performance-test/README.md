@@ -1,6 +1,6 @@
 # SecKill Performance Test
 
-Load tests use [JMeter](http://jmeter.apache.org/download_jmeter.cgi) against the **current** stack in `docker-compose.yml`: PostgreSQL, Redis, Kafka (KRaft), Elasticsearch, and the Spring Boot 3 services. There is no separate performance Compose file (the old MySQL + ActiveMQ overlay was removed).
+Load tests use [JMeter](http://jmeter.apache.org/download_jmeter.cgi) against the **current** stack in `docker-compose.yml`: PostgreSQL, Redis, Kafka (KRaft), Elasticsearch, and the Spring Boot 4 services. There is no separate performance Compose file (the old MySQL + ActiveMQ overlay was removed).
 
 Start the stack first (JDK 17 images, about 30 seconds after containers are healthy):
 

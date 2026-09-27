@@ -9,7 +9,7 @@
  * ▼
  * 【本文件】按接口选择存储
  * │
- * ├── 我的券 / 进行中活动 / 增量券 ──▶ Redis
+ * ├── 我的券 / 进行中活动 ──▶ Redis
  * └── 搜索 ──▶ Elasticsearch
  *
  * 一句话：不写库存，也不扫事件表；刚抢到的券可能还查不到。
@@ -35,7 +35,7 @@ public class SecKillQueryService {
   private final SecKillSearchIndex searchIndex;
 
   /**
-   * @param store Redis 读模型：进行中的活动、顾客的券、按编号递增的券列表
+   * @param store Redis 读模型：进行中的活动、顾客的券
    * @param searchIndex Elasticsearch 索引，只给搜索方法用
    */
   public SecKillQueryService(SecKillStore store, SecKillSearchIndex searchIndex) {
@@ -60,16 +60,6 @@ public class SecKillQueryService {
    */
   public Collection<PromotionEntity> getActivePromotions() {
     return store.activePromotions();
-  }
-
-  /**
-   * 取出编号大于 {@code latestId} 的券，供页面增量同步。
-   *
-   * @param latestId 客户端已经见过的最大券编号
-   * @return Redis 读模型里更新的券，不查 Elasticsearch
-   */
-  public Collection<CouponEntity<String>> getLatestCoupons(int latestId) {
-    return store.couponsAfter(latestId);
   }
 
   /**

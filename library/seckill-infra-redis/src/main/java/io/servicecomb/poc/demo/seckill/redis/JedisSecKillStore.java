@@ -20,7 +20,7 @@
 
 package io.servicecomb.poc.demo.seckill.redis;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;
 import io.servicecomb.poc.demo.seckill.entities.CouponEntity;
 import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
@@ -111,15 +111,8 @@ public class JedisSecKillStore implements SecKillStore {
           + "return {1, seq, remaining}";
 
   /**
-   * 补偿脚本：库存字符串加 1，并从已抢集合去掉该顾客。
-   * 不删除 Stream 里可能已经写下的令牌。KEYS 是库存和已抢集合，ARGV 是顾客编号。
-   */
-  private static final String COMPENSATE_LUA =
-      "redis.call('INCR', KEYS[1]) redis.call('SREM', KEYS[2], ARGV[1]) return 1";
-
-  /**
    * 投影写券，一次做完「已有则返回、没有则编号并写入」。
-   * KEYS 依次是券字符串、自增编号、顾客集合、按编号排序的有序集合。
+   * KEYS 依次是券字符串、自增编号、顾客集合。
    * ARGV 是活动编号、抢到时间、折扣、顾客编号、集合成员 {@code promotionId:customerId}。
    * <p>
    * {@code cjson} 是 Redis 自带的 JSON 库。拼出来的字段和查询页读的券一样：
@@ -134,7 +127,6 @@ public class JedisSecKillStore implements SecKillStore {
           + "local json = cjson.encode(coupon) "
           + "redis.call('SET', KEYS[1], json) "
           + "redis.call('SADD', KEYS[3], ARGV[5]) "
-          + "redis.call('ZADD', KEYS[4], id, json) "
           + "return json";
 
   /**
@@ -144,15 +136,14 @@ public class JedisSecKillStore implements SecKillStore {
   private static final String DRAIN_BUFFER_LUA =
       "local items = redis.call('LRANGE', KEYS[1], 0, -1) redis.call('DEL', KEYS[1]) return items";
 
-  /** 抢券、补偿、写券、清空缓冲四段脚本。正文只在第一次 SCRIPT LOAD，之后用 SHA 调用。 */
+  /** 抢券、写券、清空缓冲三段脚本。正文只在第一次 SCRIPT LOAD，之后用 SHA 调用。 */
   private static final CachedScript GRAB_SCRIPT = new CachedScript(GRAB_LUA);
-  private static final CachedScript COMPENSATE_SCRIPT = new CachedScript(COMPENSATE_LUA);
   private static final CachedScript SAVE_COUPON_SCRIPT = new CachedScript(SAVE_COUPON_LUA);
   private static final CachedScript DRAIN_BUFFER_SCRIPT = new CachedScript(DRAIN_BUFFER_LUA);
 
   private final JedisPool pool;
   /** 读模型以 JSON 字符串放进 Redis。库存和抢券队列不用它。 */
-  private final ObjectMapper mapper = new ObjectMapper();
+  private final JsonMapper mapper = JsonMapper.builder().build();
 
   /**
    * @param pool 连接池。每次命令借一条连接，用完在 finally 里还回去
@@ -215,22 +206,6 @@ public class JedisSecKillStore implements SecKillStore {
       List<Long> result = (List<Long>) evalScript(jedis, GRAB_SCRIPT, 4, stockKey(promotionId),
           claimedKey(promotionId), seqKey(promotionId), GRABS_KEY, customerId, promotionId);
       return new GrabAttempt(result.get(0).intValue(), result.get(1), result.get(2));
-    } finally {
-      jedis.close();
-    }
-  }
-
-  /**
-   * 执行补偿 Lua：INCR 库存，SREM 已抢集合。
-   *
-   * @param promotionId 活动编号
-   * @param customerId 要移出集合的顾客
-   */
-  @Override
-  public void compensateGrab(String promotionId, String customerId) {
-    Jedis jedis = pool.getResource();
-    try {
-      evalScript(jedis, COMPENSATE_SCRIPT, 2, stockKey(promotionId), claimedKey(promotionId), customerId);
     } finally {
       jedis.close();
     }
@@ -544,29 +519,6 @@ public class JedisSecKillStore implements SecKillStore {
   }
 
   /**
-   * 从有序集合 {@code seckill:coupons_by_id} 取出分数大于 {@code latestId} 的成员。
-   * <p>
-   * 分数是券 id，成员是券 JSON。区间写成 {@code (latestId}，括号表示不含等于 {@code latestId} 的那张。
-   *
-   * @param latestId 调用方已经见过的最大券编号
-   * @return 分数更大的券，顺序与 Redis 返回的一致
-   */
-  @Override
-  public Collection<CouponEntity<String>> couponsAfter(int latestId) {
-    Jedis jedis = pool.getResource();
-    try {
-      List<String> jsons = jedis.zrangeByScore("seckill:coupons_by_id", "(" + latestId, "+inf");
-      List<CouponEntity<String>> result = new ArrayList<CouponEntity<String>>();
-      for (String json : jsons) {
-        result.add(coupon(json));
-      }
-      return result;
-    } finally {
-      jedis.close();
-    }
-  }
-
-  /**
    * HSET {@code seckill:active_promotions}，field 为活动编号，value 为活动 JSON。
    *
    * @param promotion 要放进查询列表的活动
@@ -599,8 +551,8 @@ public class JedisSecKillStore implements SecKillStore {
   /**
    * 写入一张券的读模型。键 {@code seckill:coupon:{promotionId}:{customerId}} 已有 JSON 时直接返回旧券。
    * <p>
-   * 新券在一段 Lua 里 INCR {@code seckill:coupon_id}，再 SET 券 JSON、SADD 到顾客的集合、
-   * ZADD 到 {@code seckill:coupons_by_id}（分数是 id，成员是 JSON）。已有券不会再编号。
+   * 新券在一段 Lua 里 INCR {@code seckill:coupon_id}，再 SET 券 JSON、SADD 到顾客的集合。
+   * 已有券不会再编号。
    *
    * @param coupon 待保存的券。新券会就地 {@code setId}
    * @return 读模型里的券。重复时是 Redis 里已有的那份
@@ -610,8 +562,8 @@ public class JedisSecKillStore implements SecKillStore {
     Jedis jedis = pool.getResource();
     try {
       String member = coupon.getPromotionId() + ":" + coupon.getCustomerId();
-      Object raw = evalScript(jedis, SAVE_COUPON_SCRIPT, 4, "seckill:coupon:" + member, "seckill:coupon_id",
-          "seckill:customer_coupons:" + coupon.getCustomerId(), "seckill:coupons_by_id",
+      Object raw = evalScript(jedis, SAVE_COUPON_SCRIPT, 3, "seckill:coupon:" + member, "seckill:coupon_id",
+          "seckill:customer_coupons:" + coupon.getCustomerId(),
           coupon.getPromotionId(), String.valueOf(coupon.getTime()), String.valueOf(coupon.getDiscount()),
           String.valueOf(coupon.getCustomerId()), member);
       CouponEntity<String> saved = coupon(String.valueOf(raw));
@@ -725,30 +677,6 @@ public class JedisSecKillStore implements SecKillStore {
     } finally {
       jedis.close();
     }
-  }
-
-  /**
-   * 用顾客券集合做过滤，再按活动编号留下匹配项，包装成 {@code CouponGrabbedEvent}。
-   * <p>
-   * 查询页的搜索走 Elasticsearch，不调用本方法。顾客编号为 null 或空串时直接返回空列表，不再访问 Redis。
-   * 消息正文是券的 JSON，不是空对象。
-   *
-   * @param customerId 顾客编号
-   * @param promotionId 活动编号。null 或空串表示不按活动过滤
-   * @return 过滤后的消息
-   */
-  @Override
-  public List<EventMessageDto> searchCoupons(String customerId, String promotionId) {
-    Collection<CouponEntity<String>> coupons =
-        customerId == null || customerId.isEmpty() ? Collections.<CouponEntity<String>>emptyList()
-            : customerCoupons(customerId);
-    List<EventMessageDto> result = new ArrayList<EventMessageDto>();
-    for (CouponEntity<String> coupon : coupons) {
-      if (promotionId == null || promotionId.isEmpty() || promotionId.equals(coupon.getPromotionId())) {
-        result.add(new EventMessageDto("CouponGrabbedEvent", coupon.getPromotionId(), write(coupon)));
-      }
-    }
-    return result;
   }
 
   /**

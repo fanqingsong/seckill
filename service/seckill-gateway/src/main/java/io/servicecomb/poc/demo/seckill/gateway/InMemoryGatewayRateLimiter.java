@@ -77,7 +77,8 @@ public class InMemoryGatewayRateLimiter implements RateLimiter<RedisRateLimiter.
     RedisRateLimiter.Config routeConfig = config.getOrDefault(routeId, defaultConfig);
     // 配置缺失或写成 0 时，至少按每秒 1 个、桶容量 1、每次消耗 1 来算，避免除零或负速率。
     int replenish = Math.max(routeConfig.getReplenishRate(), 1);
-    int burst = Math.max(routeConfig.getBurstCapacity(), 1);
+    // Spring Cloud Gateway 5 把 burstCapacity 改成 long，避免大桶容量溢出 int。
+    long burst = Math.max(routeConfig.getBurstCapacity(), 1L);
     int requested = Math.max(routeConfig.getRequestedTokens(), 1);
     String key = routeId + ":" + id;
     long remaining;
@@ -136,7 +137,7 @@ public class InMemoryGatewayRateLimiter implements RateLimiter<RedisRateLimiter.
     private long lastNanos = System.nanoTime();
 
     /** 新桶一开始是满的，避免进程刚启动时把正常流量全部拒绝。 */
-    private Bucket(int burst) {
+    private Bucket(long burst) {
       this.tokens = burst;
     }
   }

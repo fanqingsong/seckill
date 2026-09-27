@@ -19,7 +19,6 @@ package io.servicecomb.poc.demo.seckill;
 
 import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;
 import io.servicecomb.poc.demo.seckill.entities.OutboxEntity;
-import io.servicecomb.poc.demo.seckill.event.SecKillEvent;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventType;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringOutboxRepository;
@@ -41,7 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 抢券 HTTP 返回成功时，本类通常还没有那条抢券事件，PostgreSQL 里也还没有对应的行。
  */
 @Component
-public class TransactionalEventOutboxWriter implements SecKillEventPersistent {
+public class TransactionalEventOutboxWriter {
 
   private final SpringSecKillEventRepository eventRepository;
   private final SpringOutboxRepository outboxRepository;
@@ -57,16 +56,6 @@ public class TransactionalEventOutboxWriter implements SecKillEventPersistent {
     this.eventRepository = eventRepository;
     this.outboxRepository = outboxRepository;
     this.eventFormat = eventFormat;
-  }
-
-  /**
-   * 把领域事件转成消息后交给 {@link #persist}。不改 Redis 库存。
-   *
-   * @param event 要追加的开始、抢到或结束事件
-   */
-  @Override
-  public void persistEvent(SecKillEvent event) {
-    persist(eventFormat.toMessage(event));
   }
 
   /**

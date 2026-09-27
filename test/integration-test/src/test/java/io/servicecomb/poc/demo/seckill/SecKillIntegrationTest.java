@@ -29,7 +29,7 @@
  * ├── 抢券 ──▶ HTTP 200「Request accepted」
  * └── 查询 ──▶ 正文含活动编号和顾客 zyy
  *
- * 一句话：setUp 清空活动、事件和券仓库后再走完整路径。
+ * 一句话：setUp 清空活动和事件仓库后再走完整路径。
  */
 package io.servicecomb.poc.demo.seckill;
 
@@ -46,7 +46,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -56,7 +56,6 @@ import org.springframework.test.web.servlet.MvcResult;
 import io.servicecomb.poc.demo.seckill.dto.CouponDto;
 import io.servicecomb.poc.demo.seckill.dto.PromotionDto;
 import io.servicecomb.poc.demo.seckill.json.JacksonGeneralFormat;
-import io.servicecomb.poc.demo.seckill.repositories.spring.SpringCouponRepository;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringPromotionRepository;
 import io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRepository;
 
@@ -64,7 +63,7 @@ import io.servicecomb.poc.demo.seckill.repositories.spring.SpringSecKillEventRep
  * 守护一条完整用户路径：创建活动、等到可以抢、抢券、再查到这位顾客的券。
  * <p>
  * {@code @SpringBootTest} 启动 {@link IntegrationTestApplication}，三个 HTTP 路径都打在同一个 MockMvc 上。
- * {@code setUp} 会清空活动、事件和券仓库。本文件没有出现 Redis、Kafka、Elasticsearch 或 H2 的类型或配置。
+ * {@code setUp} 会清空活动和事件仓库。本文件没有出现 Redis、Kafka、Elasticsearch 或 H2 的类型或配置。
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = IntegrationTestApplication.class)
@@ -83,18 +82,14 @@ public class SecKillIntegrationTest {
   @Autowired
   private SpringSecKillEventRepository eventRepository;
 
-  @Autowired
-  private SpringCouponRepository couponRepository;
-
   @Before
   public void setUp() throws Exception {
     eventRepository.deleteAll();
-    couponRepository.deleteAll();
     promotionRepository.deleteAll();
   }
 
   /**
-   * 前置：三个仓库已清空，活动开始时间是当前时刻。
+   * 前置：活动和事件仓库已清空，活动开始时间是当前时刻。
    * 动作：POST /admin/promotions/ 创建 5 张券，等待 1 秒后让顾客 zyy POST /command/coupons/，再等 1 秒 GET 该顾客的券。
    * 期望：创建成功；抢券 HTTP 200 且正文是 Request accepted；查询 HTTP 200，正文同时含活动编号和 zyy。
    */

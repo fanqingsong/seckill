@@ -36,6 +36,7 @@ package io.servicecomb.poc.demo.seckill;
 import java.lang.reflect.Method;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 import org.springframework.web.server.ResponseStatusException;
@@ -60,14 +61,15 @@ public class InvocationExceptionHandlerExceptionResolver extends ExceptionHandle
    *
    * @param handlerMethod 抛出异常的控制器方法，本实现在 400 和 429 时不使用它
    * @param exception 控制器抛出的异常
+   * @param webRequest 当前请求。Spring Framework 7 把这个参数加进了父类方法，父类用它决定选哪个处理方法
    * @return 要执行的处理方法和它所在的对象；不是 400/429 时用父类原来的选择
    */
   @Override
   protected ServletInvocableHandlerMethod getExceptionHandlerMethod(final HandlerMethod handlerMethod,
-      final Exception exception) {
+      final Exception exception, ServletWebRequest webRequest) {
     // 不是带 HTTP 状态的异常：仍按 Spring 默认规则找 @ExceptionHandler。
     if (!(exception instanceof ResponseStatusException)) {
-      return super.getExceptionHandlerMethod(handlerMethod, exception);
+      return super.getExceptionHandlerMethod(handlerMethod, exception, webRequest);
     }
     ResponseStatusException statusException = (ResponseStatusException) exception;
     // 校验失败：固定走 400 的测试处理类，响应体是异常消息。
@@ -80,6 +82,6 @@ public class InvocationExceptionHandlerExceptionResolver extends ExceptionHandle
       return new ServletInvocableHandlerMethod(new TooManyRequestsExceptionAdvice(), method);
     }
     // 其它状态码，例如 404：不改，交给父类。
-    return super.getExceptionHandlerMethod(handlerMethod, exception);
+    return super.getExceptionHandlerMethod(handlerMethod, exception, webRequest);
   }
 }

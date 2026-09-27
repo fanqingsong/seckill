@@ -36,15 +36,13 @@ package io.servicecomb.poc.demo.seckill.json;
 import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY;
 import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.servicecomb.poc.demo.seckill.SecKillException;
 import io.servicecomb.poc.demo.seckill.Format;
-import java.io.IOException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 用 Jackson 把活动、券和消息变成 JSON 字符串，或从字符串还原。
+ * 用 Jackson 3 把活动、券和消息变成 JSON 字符串，或从字符串还原。
  * <p>
  * {@link io.servicecomb.poc.demo.seckill.SecKillJacksonConfig} 把它注册成 {@link Format}。
  * 事件正文、outbox payload 都经过它。它不连接 PostgreSQL、Redis、Kafka 或 Elasticsearch。
@@ -55,23 +53,26 @@ import java.io.IOException;
 public class JacksonGeneralFormat implements Format {
 
   /**
-   * Jackson 的转换器。一个实例可以反复用。构造器里改了可见性：只看字段，不看 getter/setter。
+   * Jackson 3 的 JSON 转换器。一个实例可以反复用。构造器里改了可见性：只看字段，不看 getter/setter。
    */
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final JsonMapper objectMapper;
 
   /**
    * 让 JSON 按字段读写。活动、券、消息上的 getter 因此不会决定 JSON 的形状。
    * {@code withFieldVisibility(ANY)} 表示任何可见性的字段都参与；getter、setter、构造器设为
    * {@code NONE}，避免同一属性被读写两次。不访问数据库。
+   * <p>
+   * Spring Boot 4 默认 Jackson 3：{@code JsonMapper} 在构造时就把可见性定死，不再调用可变的
+   * {@code setVisibility}。
    */
   public JacksonGeneralFormat() {
-    objectMapper.setVisibility(
-        objectMapper.getSerializationConfig()
-            .getDefaultVisibilityChecker()
+    this.objectMapper = JsonMapper.builder()
+        .changeDefaultVisibility(vc -> vc
             .withFieldVisibility(ANY)
             .withGetterVisibility(NONE)
             .withSetterVisibility(NONE)
-            .withCreatorVisibility(NONE));
+            .withCreatorVisibility(NONE))
+        .build();
   }
 
   /**
@@ -84,7 +85,7 @@ public class JacksonGeneralFormat implements Format {
   public String serialize(Object obj) {
     try {
       return objectMapper.writeValueAsString(obj);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new SecKillException("Json Exception", e);
     }
   }
@@ -102,7 +103,7 @@ public class JacksonGeneralFormat implements Format {
   public <T> T deserialize(String content, Class<T> type) {
     try {
       return objectMapper.readValue(content, type);
-    } catch (IOException e) {
+    } catch (JacksonException e) {
       throw new SecKillException("Json Exception", e);
     }
   }

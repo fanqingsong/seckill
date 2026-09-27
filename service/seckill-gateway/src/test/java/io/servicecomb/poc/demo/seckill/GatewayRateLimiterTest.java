@@ -37,7 +37,7 @@ import java.io.IOException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -54,6 +54,7 @@ import okhttp3.mockwebserver.MockWebServer;
  * {@code seckill.gateway.rate-limiter=memory} 表示计数在内存里，不连 Redis。
  * 下游是本机 {@link MockWebServer}，不是真正的 Command 服务。没有 Kafka、Elasticsearch 或 H2。
  * {@code @AutoConfigureWebTestClient} 提供 {@link WebTestClient}，用来对随机端口发请求。
+ * Spring Boot 4.1 起这个注解在 {@code org.springframework.boot.webtestclient.autoconfigure}。
  */
 @SpringBootTest(
     classes = GatewayApplication.class,

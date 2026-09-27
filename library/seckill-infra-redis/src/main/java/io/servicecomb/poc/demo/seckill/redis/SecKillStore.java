@@ -63,16 +63,6 @@ public interface SecKillStore {
   GrabAttempt tryGrab(String promotionId, String customerId);
 
   /**
-   * 把一次已经扣掉的库存加回去，并把该顾客移出已抢集合。
-   * <p>
-   * 不删除抢券队列里可能已经写下的令牌，也不改 PostgreSQL。当前仓库里的抢券路径没有调用它。
-   *
-   * @param promotionId 活动编号
-   * @param customerId 要撤销的顾客编号
-   */
-  void compensateGrab(String promotionId, String customerId);
-
-  /**
    * 从抢券队列取出一条尚未确认的令牌，交给 Persist 落库。
    * <p>
    * 取到之后令牌仍算「处理中」，直到 {@link #ackGrab}。进程崩溃后同一条还能再被读到。
@@ -151,16 +141,6 @@ public interface SecKillStore {
   Collection<CouponEntity<String>> customerCoupons(String customerId);
 
   /**
-   * 按券编号取出比 {@code latestId} 更新的券，供查询页增量拉取。
-   * <p>
-   * 比较的是读模型里的券 id，不是事件序号。不包含编号恰好等于 {@code latestId} 的那一张。
-   *
-   * @param latestId 调用方已经见过的最大券编号
-   * @return 编号更大的券，内存实现会按 id 从小到大排好
-   */
-  Collection<CouponEntity<String>> couponsAfter(int latestId);
-
-  /**
    * 把活动放进「进行中」读模型。
    * <p>
    * Event 服务投影 {@code PromotionStartEvent} 时调用。不改热路径库存。
@@ -234,15 +214,4 @@ public interface SecKillStore {
    * @return 这一轮取出的消息。缓冲区不存在时为空列表，不返回 null
    */
   List<io.servicecomb.poc.demo.seckill.dto.EventMessageDto> drainBuffer(String promotionId);
-
-  /**
-   * 在券读模型里按顾客和活动过滤，并包装成抢券事件消息。
-   * <p>
-   * 查询页的搜索不调用本方法，搜索走 Elasticsearch。本方法留在契约里，供直接读 Redis 读模型的调用使用。
-   *
-   * @param customerId 顾客编号。Jedis 实现在它为 null 或空串时直接返回空列表
-   * @param promotionId 活动编号。null 或空串表示不按活动过滤
-   * @return 包成 {@code CouponGrabbedEvent} 的消息。具体 payload 以各实现为准
-   */
-  List<io.servicecomb.poc.demo.seckill.dto.EventMessageDto> searchCoupons(String customerId, String promotionId);
 }

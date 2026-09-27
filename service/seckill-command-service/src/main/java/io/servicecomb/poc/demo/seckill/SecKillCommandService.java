@@ -17,13 +17,10 @@
 
 package io.servicecomb.poc.demo.seckill;
 
-import io.servicecomb.poc.demo.seckill.dto.EventMessageDto;
 import io.servicecomb.poc.demo.seckill.entities.PromotionEntity;
-import io.servicecomb.poc.demo.seckill.event.CouponGrabbedEvent;
 import io.servicecomb.poc.demo.seckill.event.PromotionFinishEvent;
 import io.servicecomb.poc.demo.seckill.event.SecKillEventFormat;
 import io.servicecomb.poc.demo.seckill.redis.GrabAttempt;
-import io.servicecomb.poc.demo.seckill.redis.GrabToken;
 import io.servicecomb.poc.demo.seckill.redis.SecKillStore;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -98,22 +95,6 @@ public class SecKillCommandService<T> {
     }
     // Lua 已扣减，令牌在 Redis 抢券流里。HTTP 可以返回成功，但 PostgreSQL 还没有这一行。
     return SecKillGrabResult.Success;
-  }
-
-  /**
-   * 把一条抢券令牌写成 {@code CouponGrabbedEvent}，并和 outbox 放进同一个事务。
-   * <p>
-   * 当前 HTTP 入口不调用本方法，因此抢券成功不会在 Command 进程里同步落库。
-   * 线上消费 Redis 抢券流并写入同类事件的是 Persist 服务。本方法保留给需要在本进程内直接落库的调用。
-   *
-   * @param token Redis 抢券流里的令牌，含顾客、序号和扣减后的剩余张数
-   */
-  @SuppressWarnings("unchecked")
-  public void persistGrab(GrabToken token) {
-    // GrabToken 里的顾客编号是字符串。调用方约定 T 就是这个编号的类型，因此做一次强制转换。
-    CouponGrabbedEvent<T> event = new CouponGrabbedEvent<T>(promotion, (T) token.getCustomerId());
-    EventMessageDto message = eventFormat.toMessage(event, UUID.randomUUID().toString(), token.getSeq());
-    writer.persist(message);
   }
 
   /**

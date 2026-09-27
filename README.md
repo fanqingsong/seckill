@@ -4,7 +4,7 @@
 
 A flash-sale (seckill) sample for **CQRS + Event Sourcing**: Redis Lua claims stock on the hot path, PostgreSQL stores append-only events behind a transactional outbox, Kafka fans events out, and Query reads Redis / Elasticsearch.
 
-It began as an Apache ServiceComb demo. HTTP is now **Spring MVC on Spring Boot 3** (Jakarta EE). ServiceComb Vert.x 0.2 is not part of the runtime.
+It began as an Apache ServiceComb demo. HTTP is now **Spring MVC on Spring Boot 4** (Jakarta EE). ServiceComb Vert.x 0.2 is not part of the runtime.
 
 ## Architecture of SecKill
 
@@ -34,7 +34,7 @@ Kafka runs in **KRaft** mode (`apache/kafka`, combined broker + controller). The
 
 Tests use in-memory Redis/Kafka/ES plus H2 (`seckill.infra.mode=memory`, the default). Profile `prd` points at the Compose hostnames (`*.servicecomb.io` aliases).
 
-More detail on Command internals: [Command Micro-Service Architecture](service/seckill-command-service/README.md).
+More detail on Command internals: [Command Micro-Service Architecture](service/seckill-command-service/README.md). Hard-to-reverse decisions: [`docs/adr/`](docs/adr/).
 
 ### System architecture
 
@@ -167,6 +167,8 @@ sequenceDiagram
 | `CouponGrabbedEvent` | Lua claim plus queue; worker persists; unique `(promotionId, customerId)` | Redis coupon + ES coupon doc `id=pid:customerId` |
 | `PromotionFinishEvent` | Stock 0 after last persist, or finishTime once the grab queue is empty | Remove Redis promotion; ES finished flag |
 
+Illustrated walkthrough of who writes each event and how it reaches Query: [docs/learn/09-三种事件怎么流转.md](docs/learn/09-三种事件怎么流转.md).
+
 Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP `200` means Redis has claimed the coupon; Query lags until the worker and outbox catch up. Unpersisted grab tokens live in Redis stream `seckill:grabs` (consumer group `persist`) and need Redis durability across restarts. If Redis is empty, Command rebuilds stock from the event table. Kafka key is `promotionId` so one promotion is ordered; the projector still buffers `seq` gaps and can replay from PostgreSQL (`POST /admin/replay?promotionId=&fromSeq=0` for a full rebuild, or `&incremental=true` to continue after the Redis/PostgreSQL checkpoint when the read model is still present). Event Service also writes **`projection_checkpoint`** in PostgreSQL (mirror of `seckill:applied_seq`) and on startup may align Redis sequence keys after AOF recovery. Failed projections go to `seckill.events.dlt`. The consumer commits a poll batch only for records already projected or copied to the dead-letter topic, so a crash mid-batch redelivers the rest.
 
 ![Event sourcing overview](https://github.com/ServiceComb/seckill/blob/master/etc/EventSourcing.png)
@@ -177,7 +179,7 @@ Duplicates are ignored by the unique constraint and the Redis claimed set. HTTP 
 |------|------|
 | Language / JDK | Java 17 |
 | Build | Maven 3.9+ multi-module (`0.2.0-SNAPSHOT`) |
-| Application | Spring Boot **3.3.13** + Spring Cloud **2023.0.5** (Gateway) |
+| Application | Spring Boot **4.1.1** + Spring Cloud **2025.1.3** (Gateway WebFlux) |
 | Web / REST | Spring MVC on Admin/Command/Query/Event; Spring Cloud Gateway (WebFlux) at the edge |
 | Persistence | Spring Data JPA + PostgreSQL (H2 for tests); Redis Lua (Jedis 5) for hot path and read model |
 | Edge | Gateway token bucket (in-memory tests / Redis in `prd`) + Resilience4j circuit breaker (5xx/timeout; **not** business 429) |
@@ -295,7 +297,6 @@ seckill/
 |--------|------|
 | Boot (JPA/DB auto-config off) | [`QueryServiceApplication.java`](service/seckill-query-service/src/main/java/io/servicecomb/poc/demo/QueryServiceApplication.java) |
 | `GET /query/promotions`, coupons, search | [`web/SeckillQueryRestController.java`](service/seckill-query-service/src/main/java/io/servicecomb/poc/demo/seckill/web/SeckillQueryRestController.java) |
-| Legacy `GET /sync/{id}` | [`web/SecKillSyncRestController.java`](service/seckill-query-service/src/main/java/io/servicecomb/poc/demo/seckill/web/SecKillSyncRestController.java) |
 | Query logic | [`SecKillQueryService.java`](service/seckill-query-service/src/main/java/io/servicecomb/poc/demo/seckill/SecKillQueryService.java) |
 
 ### Event — [`service/seckill-event-service/`](service/seckill-event-service/)

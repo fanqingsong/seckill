@@ -2,7 +2,7 @@
 
 本仓库是一个给 **Java 初学者** 读的秒杀示例（CQRS + 事件溯源）。后续 Agent 改代码、补文档、回答问题时，默认读者还不会熟练使用 Spring，需要把「这段代码在整条请求里干什么」写清楚。
 
-权威设计说明仍是根目录 [README.md](README.md)。按课阅读顺序在 [docs/learn/README.md](docs/learn/README.md)。本文件约束 Agent 怎么写，不另起一套架构。
+权威设计说明仍是根目录 [README.md](README.md)。按课阅读顺序在 [docs/learn/README.md](docs/learn/README.md)。不可逆决策在 [docs/adr/](docs/adr/)。本文件约束 Agent 怎么写，不另起一套架构。
 
 ## 每次动代码之前
 
@@ -138,8 +138,9 @@ public class SecKillCommandService<T> {
 - 发到 Kafka 的消息来自 outbox，并且和事件插入处在同一个数据库事务里。不要先发消息再提交数据库。
 - 查询不要直接扫事件表来拼页面。读模型由 Event 服务投影。
 - Gateway 的限流和熔断保持可配置。生产形态的限流计数在 Redis，测试可以用内存实现。
-- Java 版本 17，Spring Boot 3.3（Jakarta）。不要引入 `javax.*`，不要把 ServiceComb Vert.x 0.2 加回运行时。
+- Java 版本 17，Spring Boot 4.1（Jakarta）。不要引入 `javax.*`，不要把 ServiceComb Vert.x 0.2 加回运行时。
 - 公开 HTTP 路径、JSON 字段名、Redis 键格式、Kafka topic 是跨服务契约。改动时同时改调用方、测试和文档。
+- 不保留未接入三条链路的方法、仓库或 HTTP。memory / prod 双实现不算死代码。决策见 `docs/adr/0005-live-code-only.md`。
 
 ## 文档
 
@@ -147,6 +148,7 @@ public class SecKillCommandService<T> {
 - `docs/learn/` 用中文，句子短，先讲请求走到哪，再贴必要的代码。版权声明、成排的 getter/setter 不要大段贴进课文。
 - 根目录 README 保持英文，和现有章节结构一致。不要把 README 改成第二份中文教程。
 - 不要新写一份与 README 或 `docs/learn/` 重复的架构长文，除非用户明确要求。
+- 不可逆取舍写进 `docs/adr/`，短文即可。代码不得留下与 ADR 冲突的备用路径。
 
 ## 构建、运行、测试
 
