@@ -14,7 +14,7 @@ HTTP is Spring MVC (Spring Boot 4). Sold out / duplicate grab returns **HTTP 429
   3. [`seckill-outbox-relay-service`](../seckill-outbox-relay-service/): PostgreSQL CDC notify plus poll publishes committed outbox rows to Kafka `seckill.events` (key = `promotionId`). Kafka in Compose is **KRaft** (no ZooKeeper).
 * Duplicate / sold out return `429` (`duplicate order` / `out of stock`). Unique `(promotionId, customerId)` on the event store is a second line of defense. Browser traffic goes through Gateway first: quota 429 has `X-RateLimit-*` headers; sold-out 429 has a plain-text body and does not trip the circuit breaker.
 
-The grab queue is a Redis Stream (Jedis 5) with consumer group `persist`. Query sync is unchanged (outbox → Kafka → Event Service). Unpersisted tokens stay pending until `XACK` and need Redis durability; an empty Redis is rebuilt from the event table.
+The grab queue is a Redis Stream (Jedis 5) with consumer group `persist`. Query sync is unchanged (outbox → Kafka → Event Service). Unpersisted tokens stay pending until `XACK`. Compose and Kubernetes Redis use `appendfsync always` on a data volume, so a process restart keeps tokens Redis has already acknowledged. An empty Redis is rebuilt from the event table.
 
 See the root [README](../README.md) for the full CQRS diagram.
 

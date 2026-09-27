@@ -17,7 +17,7 @@ services:
   redis:
     image: "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:7-alpine"
     hostname: redis
-    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
     volumes:
       - redis-data:/data
     ports:

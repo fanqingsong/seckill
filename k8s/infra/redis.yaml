@@ -1,4 +1,33 @@
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: seckill-redis-data
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: seckill-redis
+  hostPath:
+    path: /var/lib/seckill/redis
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: seckill
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: seckill-redis
+  volumeName: seckill-redis-data
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: redis
@@ -28,13 +57,23 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+      securityContext:
+        fsGroup: 999
       containers:
         - name: redis
           image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:7-alpine
+          args: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
           ports:
             - containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
           readinessProbe:
             exec:
               command: ["redis-cli", "ping"]
             initialDelaySeconds: 3
             periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: redis-data

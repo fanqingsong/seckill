@@ -48,6 +48,8 @@ k8s/
 └── load-images.sh
 ```
 
+Redis 使用 AOF（`appendfsync always`）和 hostPath 卷 `/var/lib/seckill/redis`。Pod 重建后，已经写入并得到 Redis 回复的抢券令牌还在。这个路径在节点本地，单节点 kind / k3d 可用；换节点或删掉集群后卷里的数据不再可用。
+
 业务 Pod 用 `JAVA_OPTS` 覆盖 `prd` 里的 `*.servicecomb.io` 主机名为集群 Service（`postgres`、`redis`、`kafka`、`elasticsearch`）。
 
 Java 服务的 sidecar 排除了出站 `5432,6379,9092,9200`。Istio 会按 6379 把流量当成 Redis 协议，Envoy 的 Redis 过滤器不支持抢券用的 `EVAL` / Stream，会返回 `WRONGTYPE`。
