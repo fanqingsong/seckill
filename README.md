@@ -15,7 +15,7 @@ Seven Java services plus a React UI live under **`service/`**. Shared Maven libr
 | Frontend | [`service/frontend/`](service/frontend/) | 8080 | React UI; nginx reverse-proxies `/admin`, `/command`, `/query` to Gateway (replay is **not** proxied) |
 | Gateway | [`service/seckill-gateway/`](service/seckill-gateway/) | 8085 | Spring Cloud Gateway: Redis/in-memory rate limit + Resilience4j circuit breaker |
 | Admin | [`service/seckill-admin-service/`](service/seckill-admin-service/) | 8081 | Create/update promotions in PostgreSQL |
-| Command | [`service/seckill-command-service/`](service/seckill-command-service/) | 8082 | Redis Lua grab; start/finish promotions; write outbox |
+| Command | [`service/seckill-command-service/`](service/seckill-command-service/) | 8082 | Redis Lua grab; start/finish promotions; rebuild hot-path stock from the event table when stock keys are absent; write outbox |
 | Persist | [`service/seckill-persist-service/`](service/seckill-persist-service/) | 8086 | Consume grab stream; write events + outbox |
 | Outbox Relay | [`service/seckill-outbox-relay-service/`](service/seckill-outbox-relay-service/) | 8087 | CDC notify + poll outbox; publish Kafka `seckill.events` |
 | Query | [`service/seckill-query-service/`](service/seckill-query-service/) | 8083 | Read Redis (hot) and Elasticsearch (search) |
@@ -69,6 +69,8 @@ flowchart TB
   GW -->|"GET /query/promotions<br/>GET /query/coupons/{id}"| Query
   Admin --> PG
   Cmd -->|"hot path: one Lua"| RedisHot
+  Cmd -->|"initStock when stock keys are absent"| RedisHot
+  PG -.->|"rebuild: remaining and claimed from events"| Cmd
   RedisHot -->|"XADD grab token"| Persist
   Persist -->|"same TX event plus outbox"| PG
   Cmd -->|"start/finish TX plus outbox"| PG
@@ -101,12 +103,14 @@ sequenceDiagram
 
   loop bootstrap scheduler
     Cmd->>PG: find promotions after last loaded id
-    alt publishTime reached
+    alt publishTime reached, stock key absent, event table empty
       Cmd->>Redis: init stock and claimed set
       Cmd->>PG: persist PromotionStartEvent plus outbox
     end
   end
 ```
+
+If the stock key is missing but events are already stored, bootstrap rebuilds Redis from those events and does not write a second start event. That path is the next diagram.
 
 **2. Grab a coupon**
 
@@ -159,7 +163,34 @@ sequenceDiagram
   Query-->>FE: CouponInfo list
 ```
 
-**3. Event types and read-model projection**
+**3. Rebuild hot-path stock when Redis keys are absent**
+
+This is not a browser request. Command's bootstrap runs it when it is about to start a promotion and `seckill:stock:{promotionId}` is missing (first publish, or the Redis volume / memory store is gone). It does not compare Redis and PostgreSQL while the keys are still there.
+
+```mermaid
+sequenceDiagram
+  participant Boot as Command bootstrap
+  participant Redis as Redis hot path
+  participant PG as PostgreSQL events
+
+  Boot->>Redis: stock key present?
+  alt key still present
+    Note over Boot,Redis: leave stock and claimed set unchanged
+  else key absent and events already stored
+    Boot->>PG: load events for this promotion
+    PG-->>Boot: grabbed count, claimed customers, last seq
+    Note over Boot: remaining = coupon total minus grabbed events
+    Boot->>Redis: initStock
+    Note over Boot,PG: do not append another PromotionStartEvent
+  else key absent and the event table is empty
+    Boot->>Redis: initStock with the full coupon count
+    Boot->>PG: PromotionStartEvent plus outbox
+  end
+```
+
+Grabs that Redis accepted but Persist has not written yet live only in `seckill:grabs`. If that data is gone with the volume, rebuild cannot restore them. Rebuilding the Query read model is a different path: `POST /admin/replay` on Event Service.
+
+**4. Event types and read-model projection**
 
 | Event | Write side | Read side (Event Service) |
 |-------|------------|---------------------------|
